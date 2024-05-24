@@ -145,7 +145,7 @@ Here’s how T-Codes are typically used in SAP:
 | SM30          | Maintain tables(not all tables can use SM30) |
 | ST22          | Dump Analysis                                |
 | SU53          | Display authorization checked values         |
-| SE24          | ABAP Classes                                 |
+| [SE24](#oops) | ABAP Classes                                 |
 | SCI           | Code Inspector                               |
 | SE01          | Transport Organizer(Extended View)           |
 
@@ -218,7 +218,7 @@ Here’s how T-Codes are typically used in SAP:
 
 ---
 
-## Object Oriented Programming – SE24
+## <a name="oops"></a>Object Oriented Programming – SE24
 
 ![Classes](./img/oops.png "Classes")
 
