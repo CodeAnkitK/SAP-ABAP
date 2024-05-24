@@ -5,9 +5,6 @@
 
 ![Architecture](./img/history.jpg)
 
-
-
-
 ## Introduction to ABAP. 
 
 > ABAP, which stands for Advanced Business Application Programming, is a high-level programming language created by SAP for developing business applications in the SAP environment. 
@@ -54,8 +51,7 @@ Middleware in ERP architecture helps integrate diverse systems and applications 
 
 ## SAP Architecture
 
-![Architecture](./img/erp-arch2.jpg)
-
+![Architecture](./img/erp-arch2.jpg "Architecture")
 
 1. **Database Layer: **
 
@@ -69,15 +65,49 @@ This is the core of ABAP architecture, consisting of the application servers and
 
 This consists of the client-side components that interact with the SAP system, typically SAP GUI or newer web-based interfaces like SAP Fiori. This layer is responsible for presenting the user interface to end users.
 
-
 4. **Middleware**
 
 - _Central Services:_ This includes the central services instance (ASCS), which provides essential services like enqueue and message services, vital for the management of locks and cross-application messaging.
 
 - _Application Server ABAP (AS ABAP):_ This is the core of ABAP architecture, consisting of the application servers and the message server. These servers handle the execution of ABAP programs, the processing of client requests, and the management of database communications.
 
+---
 
+## SAP Module 
 
+![Function Modules](./img/function-mod.jpg "Function Modules")
+
+SAP modules are distinct functional components of the SAP ERP system that target specific business areas and processes. Each module is designed to handle specific business functions like finance, sales, human resources, and operations, enabling organizations to manage and integrate their business processes efficiently. Here are some of the main SAP modules:
+
+- **SAP Financial Accounting (FI):** Manages a company's financial transactions and reporting, ensuring compliance with accounting regulations.
+
+- **SAP Controlling (CO):** Supports monitoring, coordination, and optimization of all processes in an organization.
+
+- **SAP Sales and Distribution (SD):** Handles all aspects of sales and distribution processing, including selling, shipping, billing, and invoicing.
+
+- **SAP Material Management (MM):** Manages materials procurement and inventory functions, including purchasing, inventory, and warehouse management.
+
+- **SAP Human Capital Management (HCM):** Focuses on personnel administration, payroll, recruiting, and workforce management.
+
+---
+
+## RICEF 
+
+![RICEF](./img/ricef.jpg "RICEF")
+
+> RICEF is an acronym used within SAP environments to categorize different types of development work required to enhance or customize the standard SAP system to meet specific business needs
+
+Each letter in "RICEF" stands for a particular type of object or development task:
+
+**R - Reports:** These are programs or tools that generate lists or other outputs based on the data within the SAP system. Reports are crucial for business analysis and decision-making processes, often created using ABAP programming.
+
+**I - Interfaces:** Interfaces refer to the connections set up between the SAP system and external systems or between different SAP systems. These are crucial for data exchange and are often developed using various methods including BAPIs (Business Application Programming Interfaces), RFCs (Remote Function Calls), and IDocs (Intermediate Documents).
+
+**C - Conversions:** Conversions involve the migration of data from legacy systems into an SAP environment, which is essential during initial SAP setup or when integrating new modules. This typically involves data mapping and transformation scripts.
+
+**E - Enhancements:** Enhancements are modifications or additions to the standard SAP system to meet specific business requirements without altering the core software. This can be achieved through user exits, BADIs (Business Add-Ins), and enhancement spots.
+
+**F - Forms:** Forms are templates used for the output of data in a structured and formatted way, such as invoices, purchase orders, and checks. SAP Script and Smart Forms are common technologies used to design and implement forms.
 
 
 
