@@ -49,6 +49,31 @@ This is the user interface of the ERP system where users interact with the softw
 
 Middleware in ERP architecture helps integrate diverse systems and applications across the enterprise. It enables communication between the ERP system and other independent systems, ensuring that there is seamless data flow and functionality across platforms. Middleware can include integration tools, application servers, and APIs.
 
+---
+
+## SAP Architecture
+
+![Architecture](./img/erp-arch2.jpg)
+
+
+1. Database Layer: 
+
+The underlying database system where all data is stored. SAP ABAP is designed to work with any database but is optimized for SAP HANA, which allows leveraging advanced features like in-memory computing.
+
+2. Application Server ABAP (AS ABAP):
+
+This is the core of ABAP architecture, consisting of the application servers and the message server. These servers handle the execution of ABAP programs, the processing of client requests, and the management of database communications.
+
+3. Presentation Layer
+
+This consists of the client-side components that interact with the SAP system, typically SAP GUI or newer web-based interfaces like SAP Fiori. This layer is responsible for presenting the user interface to end users.
+
+
+4. Middleware
+
+- Central Services: This includes the central services instance (ASCS), which provides essential services like enqueue and message services, vital for the management of locks and cross-application messaging.
+
+- Application Server ABAP (AS ABAP): This is the core of ABAP architecture, consisting of the application servers and the message server. These servers handle the execution of ABAP programs, the processing of client requests, and the management of database communications.
 
 
 
