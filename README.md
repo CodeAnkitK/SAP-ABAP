@@ -131,23 +131,23 @@ Here’s how T-Codes are typically used in SAP:
 
 ### ABAP centric T-Codes
 
-| T-Code                            | Description                                  |
-|-----------------------------------|----------------------------------------------|
-| ABAPDOCU                          | Example Library                              |
-| ABAPHELP                          | Keyword Documentation                        |
-| SE80                              | Object Navigator                             |
-| SE93                              | Maintain Transaction                         |
-| SE37                              | ABAP Function Modules                        |
-| SE38                              | ABAP Editor                                  |
-| [SE11](## Data Dictionary - SE11) | Data dictionary maintenance                  |
-| SE09                              | Transport organizer                          |
-| SLIN                              | Extended Check                               |
-| SM30                              | Maintain tables(not all tables can use SM30) |
-| ST22                              | Dump Analysis                                |
-| SU53                              | Display authorization checked values         |
-| SE24                              | ABAP Classes                                 |
-| SCI                               | Code Inspector                               |
-| SE01                              | Transport Organizer(Extended View)           |
+| T-Code                           | Description                                  |
+|----------------------------------|----------------------------------------------|
+| ABAPDOCU                         | Example Library                              |
+| ABAPHELP                         | Keyword Documentation                        |
+| SE80                             | Object Navigator                             |
+| SE93                             | Maintain Transaction                         |
+| SE37                             | ABAP Function Modules                        |
+| SE38                             | ABAP Editor                                  |
+| [SE11](##Data Dictionary - SE11) | Data dictionary maintenance                  |
+| SE09                             | Transport organizer                          |
+| SLIN                             | Extended Check                               |
+| SM30                             | Maintain tables(not all tables can use SM30) |
+| ST22                             | Dump Analysis                                |
+| SU53                             | Display authorization checked values         |
+| SE24                             | ABAP Classes                                 |
+| SCI                              | Code Inspector                               |
+| SE01                             | Transport Organizer(Extended View)           |
 
 ### Other ABAP T-Codes
 
