@@ -216,5 +216,25 @@ Here’s how T-Codes are typically used in SAP:
 
 - **Type Groups:** Type groups (Type Pools) contain definitions of data types that are reusable across programs.
 
+---
+
+## Object Oriented Programming – SE24
+
+![Classes](./img/oops.png "Classes")
+
+> **Object-Oriented Programming (OOP)** in SAP ABAP introduces a modern approach to programming that complements the traditional procedural programming techniques. The primary goal of incorporating OOP in ABAP is to enhance reusability, maintainability, and scalability of code, which are crucial for complex SAP software development. ABAP’s OOP extension is particularly powerful for developing SAP applications that are easy to adjust, extend, and maintain. It integrates seamlessly with traditional ABAP programming, providing a robust toolset for addressing contemporary software development challenges in the SAP ecosystem.
+
+Advantages of Using OOP in ABAP:
+
+- **Enhanced Code Quality:** OOP makes ABAP programs more systematic and manageable, which is especially beneficial in complex system developments.
+
+- **Modularity:** Encourages modular design by allowing programmers to build components that can be developed independently and plugged in as needed.
+
+- **Reusability:** Enables developers to use the same object in different programs, reducing redundancy and effort.
+
+- **Ease of Maintenance:** Changes made in a class are inherited by all its subclasses, which simplifies updates and maintenance.
+
+
+
 
 
