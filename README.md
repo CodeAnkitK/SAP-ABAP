@@ -77,7 +77,9 @@ This consists of the client-side components that interact with the SAP system, t
 
 ![Function Modules](./img/function-mod.jpg "Function Modules")
 
-SAP modules are distinct functional components of the SAP ERP system that target specific business areas and processes. Each module is designed to handle specific business functions like finance, sales, human resources, and operations, enabling organizations to manage and integrate their business processes efficiently. Here are some of the main SAP modules:
+SAP modules are distinct functional components of the SAP ERP system that target specific business areas and processes. Each module is designed to handle specific business functions like finance, sales, human resources, and operations, enabling organizations to manage and integrate their business processes efficiently. 
+
+Here are some of the main SAP modules:
 
 - **SAP Financial Accounting (FI):** Manages a company's financial transactions and reporting, ensuring compliance with accounting regulations.
 
@@ -108,6 +110,78 @@ Each letter in "RICEF" stands for a particular type of object or development tas
 **E - Enhancements:** Enhancements are modifications or additions to the standard SAP system to meet specific business requirements without altering the core software. This can be achieved through user exits, BADIs (Business Add-Ins), and enhancement spots.
 
 **F - Forms:** Forms are templates used for the output of data in a structured and formatted way, such as invoices, purchase orders, and checks. SAP Script and Smart Forms are common technologies used to design and implement forms.
+
+---
+
+## T-Codes
+
+SAP ABAP Transaction Codes, commonly known as T-Codes, are standardized shortcuts or codes used to access specific tasks or transactions within the SAP system without using a navigation menu. Each T-Code in SAP is associated with a particular task; these can be operational tasks, such as entering a sales order, or administrative tasks, such as accessing user data or system settings.
+
+![T Code](./img/t-code.png "T-Code")
+
+Here’s how T-Codes are typically used in SAP:
+
+- **Direct Access: **Instead of navigating through several menus to reach a particular function, users can enter a T-Code in the command field to access it directly.
+
+- **Shortcuts:** T-Codes serve as shortcuts to transactions, saving time and effort in daily operations.
+
+- **Functional Classification:** T-Codes are grouped by related functions, such as finance, human resources, or materials management, making them easier to learn and remember.
+
+> NOTE: You can Create a T-Code in SE93, The list of T-Codes can be seen in TSTC Table.
+
+### ABAP centric T-Codes
+
+| T-Code   | Description                                  |
+| -------- | -------------------------------------------- |
+| ABAPDOCU | Example Library                              |
+| ABAPHELP | Keyword Documentation                        |
+| SE80     | Object Navigator                             |
+| SE93     | Maintain Transaction                         |
+| SE37     | ABAP Function Modules                        |
+| SE38     | ABAP Editor                                  |
+| SE11     | Data dictionary maintenance\`                |
+| SE09     | Transport organizer                          |
+| SLIN     | Extended Check                               |
+| SM30     | Maintain tables(not all tables can use SM30) |
+| ST22     | Dump Analysis                                |
+| SU53     | Display authorization checked values         |
+| SE24     | ABAP Classes                                 |
+| SCI      | Code Inspector                               |
+| SE01     | Transport Organizer(Extended View)           |
+
+### Other ABAP T-Codes
+
+| T-Code     | Description                                                                       |
+| ---------- | --------------------------------------------------------------------------------- |
+| SE41       | Menu Painter                                                                      |
+| SE51       | Screen Painter                                                                    |
+| SE71       | Form Painter                                                                      |
+| SM50       | Work process overview                                                             |
+| SM59       | RFC connection, maintain                                                          |
+| ST01       | SAP system trace                                                                  |
+| SM21       | System Log                                                                        |
+| SE72       | SAPscript Styles                                                                  |
+| SE73       | SAPscript Font Maintenance                                                        |
+| SE74       | SAPscript format conversion                                                       |
+| SE75       | SAPscript Settings                                                                |
+| SE76       | SAPscript: Form Translation                                                       |
+| SE77       | SAPscript Styles Translation                                                      |
+| smartforms | Smartforms                                                                        |
+| Wedi       | IDOC and EDI basis                                                                |
+| we31       | Segment creation                                                                  |
+| we30       | Idoc Type creation                                                                |
+| we81       | Creation and assigning of Message type                                            |
+| NACE       | conditions of output control (to create a link between forms and driver programs) |
+
+### ABAP T-Codes related to Basis
+
+| T-Code | Description                                       |
+| ------ | ------------------------------------------------- |
+| SPAD   | Spool administration (printer setup)              |
+| SPAU   | Intersection SAP Transport/customer modifications |
+
+
+
 
 
 
