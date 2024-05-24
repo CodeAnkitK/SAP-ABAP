@@ -53,7 +53,7 @@ Middleware in ERP architecture helps integrate diverse systems and applications 
 
 ![Architecture](./img/erp-arch2.jpg "Architecture")
 
-1. **Database Layer: **
+1. **Database Layer:**
 
 The underlying database system where all data is stored. SAP ABAP is designed to work with any database but is optimized for SAP HANA, which allows leveraging advanced features like in-memory computing.
 
@@ -121,7 +121,7 @@ SAP ABAP Transaction Codes, commonly known as T-Codes, are standardized shortcut
 
 Here’s how T-Codes are typically used in SAP:
 
-- **Direct Access: **Instead of navigating through several menus to reach a particular function, users can enter a T-Code in the command field to access it directly.
+- **Direct Access:** Instead of navigating through several menus to reach a particular function, users can enter a T-Code in the command field to access it directly.
 
 - **Shortcuts:** T-Codes serve as shortcuts to transactions, saving time and effort in daily operations.
 
@@ -206,13 +206,13 @@ Here’s how T-Codes are typically used in SAP:
 
 - **Data Elements:** These describe the individual fields in the tables. Data elements include technical and descriptive information such as data type, length, decimal places, and a short text description.
 
-- **Domains: **Domains define the attributes of data fields, such as value range, data type, and length. They are used to ensure that data entered into the fields conforms to predefined criteria, aiding in data consistency and validation.
+- **Domains:** Domains define the attributes of data fields, such as value range, data type, and length. They are used to ensure that data entered into the fields conforms to predefined criteria, aiding in data consistency and validation.
 
 - **Views:** Views are virtual tables derived from one or more tables. Views are used to generate reports or retrieve data in a format that does not directly correspond to the structure of the underlying database.
 
 - **Search Helps:** These are tools for searching the database. They help users to find possible input values for fields in database tables. Search helps can be attached to fields via their data element descriptions.
 
-- **Lock Objects: **Lock objects are used to synchronize access to database entries when several users attempt to access the same data simultaneously. They help manage concurrent access, ensuring that transaction integrity is maintained.
+- **Lock Objects:** Lock objects are used to synchronize access to database entries when several users attempt to access the same data simultaneously. They help manage concurrent access, ensuring that transaction integrity is maintained.
 
 - **Type Groups:** Type groups (Type Pools) contain definitions of data types that are reusable across programs.
 
