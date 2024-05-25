@@ -97,7 +97,7 @@ Here are some of the main SAP modules:
 
 ![RICEF](./img/ricef.jpg "RICEF")
 
-> RICEF is an acronym used within SAP environments to categorize different types of development work required to enhance or customize the standard SAP system to meet specific business needs
+> RICEF is an acronym used within SAP environments to categorize different types of development work required to enhance or customize the standard SAP system to meet specific business needs.
 
 Each letter in "RICEF" stands for a particular type of object or development task:
 
