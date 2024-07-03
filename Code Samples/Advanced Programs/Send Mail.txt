@@ -1,0 +1,758 @@
+*&---------------------------------------------------------------------*
+*& Report  ZMM_UTIL_PO_DELIVERY
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zmm_util_po_delivery.
+
+TABLES: zact_mail.
+
+TYPES:BEGIN OF ty_meta,
+       ebeln TYPE ebeln,
+       eindt TYPE eindt,
+       bnfpo TYPE bnfpo,
+       nplnr TYPE nplnr,
+       pspel TYPE ps_psp_ele,
+       vernr TYPE ps_vernr,
+      END OF ty_meta.
+
+TYPES:BEGIN OF ty_vernr,
+        vernr TYPE ps_vernr,
+      END OF ty_vernr.
+
+TYPES:BEGIN OF ty_final,
+       po_number  TYPE  ebeln,
+       delv_date  TYPE  eindt,
+       comp_code  TYPE  bukrs,
+       po_item    TYPE  ebelp,
+       short_text TYPE  txz01,
+       material   TYPE  matnr,
+       plant      TYPE  ewerk,
+       quantity   TYPE  bstmg,
+       net_price  TYPE  bapicurext,
+       po_unit    TYPE  bstme,
+      END OF ty_final.
+
+TYPES: BEGIN OF xml_line,
+        data(255) TYPE x,
+       END OF xml_line.
+
+DATA: l_ixml            TYPE REF TO if_ixml,
+      l_streamfactory   TYPE REF TO if_ixml_stream_factory,
+      l_ostream         TYPE REF TO if_ixml_ostream,
+      l_renderer        TYPE REF TO if_ixml_renderer,
+      l_document        TYPE REF TO if_ixml_document.
+
+DATA: l_element_root        TYPE REF TO if_ixml_element,
+      ns_attribute          TYPE REF TO if_ixml_attribute,
+      r_element_properties  TYPE REF TO if_ixml_element,
+      r_element             TYPE REF TO if_ixml_element,
+      r_worksheet           TYPE REF TO if_ixml_element,
+      r_table               TYPE REF TO if_ixml_element,
+      r_column              TYPE REF TO if_ixml_element,
+      r_row                 TYPE REF TO if_ixml_element,
+      r_cell                TYPE REF TO if_ixml_element,
+      r_data                TYPE REF TO if_ixml_element,
+      l_value               TYPE string,
+      l_type                TYPE string,
+      l_text(100)           TYPE c,
+      r_styles              TYPE REF TO if_ixml_element,
+      r_style               TYPE REF TO if_ixml_element,
+      r_style1              TYPE REF TO if_ixml_element,
+      r_format              TYPE REF TO if_ixml_element,
+      r_border              TYPE REF TO if_ixml_element,
+      num_rows              TYPE i.
+DATA: l_xml_table       TYPE TABLE OF xml_line,
+      wa_xml            TYPE xml_line,
+      l_xml_size        TYPE i,
+      l_rc              TYPE i.
+
+DATA: wa_message      TYPE solisti1,
+      wa_receivers    TYPE somlreci1,
+      wa_packing_list TYPE sopcklsti1,
+      gd_doc_data     TYPE sodocchgi1,
+      w_record        TYPE solisti1,
+      i_record        TYPE TABLE OF solisti1,
+      it_message      TYPE TABLE OF solisti1,
+      it_receivers    TYPE TABLE OF somlreci1,
+      it_packing_list TYPE TABLE OF sopcklsti1.
+
+DATA: gd_sent_all(1) TYPE c.
+DATA: it_objhead TYPE STANDARD TABLE OF solisti1.
+DATA: wa_objhead TYPE solisti1.
+DATA: wa_objbin  TYPE solix.
+DATA: it_objbin  TYPE STANDARD TABLE OF solix.
+DATA: tdate(10)  TYPE c.
+DATA: tab_lines LIKE sy-tabix.
+
+DATA: next15days TYPE sy-datum.
+DATA:
+purchaseorder       TYPE  bapimepoheader-po_number,
+account_assignment  TYPE  bapimmpara-selection,
+item_text           TYPE  bapimmpara-selection,
+header_text         TYPE  bapimmpara-selection,
+delivery_address    TYPE  bapimmpara-selection,
+version             TYPE  bapimmpara-selection,
+services            TYPE  bapimmpara-selection,
+serialnumbers       TYPE  bapimmpara-selection,
+invoiceplan         TYPE  bapimmpara-selection,
+return              TYPE  STANDARD TABLE OF bapiret2,
+poitem              TYPE  STANDARD TABLE OF bapimepoitem,
+poaddrdelivery      TYPE  STANDARD TABLE OF bapimepoaddrdelivery,
+poschedule          TYPE  STANDARD TABLE OF bapimeposchedule,
+poaccount           TYPE  STANDARD TABLE OF bapimepoaccount,
+pocondheader        TYPE  STANDARD TABLE OF bapimepocondheader,
+pocond              TYPE  STANDARD TABLE OF bapimepocond,
+polimits            TYPE  STANDARD TABLE OF bapiesuhc,
+pocontractlimits    TYPE  STANDARD TABLE OF bapiesucc,
+poservices          TYPE  STANDARD TABLE OF bapiesllc,
+posrvaccessvalues   TYPE  STANDARD TABLE OF bapiesklc,
+potextheader        TYPE  STANDARD TABLE OF bapimepotextheader,
+potextitem          TYPE  STANDARD TABLE OF bapimepotext,
+poexpimpitem        TYPE  STANDARD TABLE OF bapieipo,
+pocomponents        TYPE  STANDARD TABLE OF bapimepocomponent,
+poshippingexp       TYPE  STANDARD TABLE OF bapimeposhippexp,
+pohistory           TYPE  STANDARD TABLE OF bapiekbe,
+pohistory_totals    TYPE  STANDARD TABLE OF bapiekbes,
+poconfirmation      TYPE  STANDARD TABLE OF bapiekes,
+allversions         TYPE  STANDARD TABLE OF bapimedcm_allversions,
+popartner           TYPE  STANDARD TABLE OF bapiekkop,
+extensionout        TYPE  STANDARD TABLE OF bapiparex,
+serialnumber        TYPE  STANDARD TABLE OF bapimeposerialno,
+invplanheader       TYPE  STANDARD TABLE OF bapi_invoice_plan_header,
+invplanitem         TYPE  STANDARD TABLE OF bapi_invoice_plan_item,
+pohistory_ma        TYPE  STANDARD TABLE OF bapiekbe_ma,
+poheader            TYPE  bapimepoheader,
+poexpimpheader      TYPE  bapieikp.
+
+DATA: it_list TYPE STANDARD TABLE OF ty_meta.
+DATA: wa_list TYPE ty_meta.
+
+DATA: it_vernr TYPE STANDARD TABLE OF ty_vernr.
+DATA: wa_vernr TYPE ty_vernr.
+
+DATA: it_mail_list TYPE STANDARD TABLE OF zact_mail.
+DATA: wa_mail_list TYPE zact_mail.
+
+DATA: it_final TYPE STANDARD TABLE OF ty_final.
+DATA: wa_final TYPE ty_final.
+
+DATA: wa_poitem TYPE bapimepoitem.
+
+START-OF-SELECTION.
+  PERFORM caculate15days.
+  PERFORM getpoin15days.
+  PERFORM podetails.
+END-OF-SELECTION.
+
+*&---------------------------------------------------------------------*
+*&      Form  CACULATE15DAYS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM caculate15days .
+
+  next15days = sy-datum + 15.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GETPOIN15DAYS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM getpoin15days .
+  REFRESH: it_list.
+  REFRESH: it_mail_list.
+  SELECT ebeln eindt bnfpo
+    FROM eket
+    INTO CORRESPONDING FIELDS OF wa_list
+    WHERE eindt BETWEEN sy-datum AND next15days.
+
+    SELECT SINGLE nplnr
+      FROM ekkn
+      INTO wa_list-nplnr
+      WHERE ebeln = wa_list-ebeln.
+
+    SELECT SINGLE pspel
+      FROM aufk
+      INTO wa_list-pspel
+      WHERE aufnr = wa_list-nplnr.
+
+    SELECT SINGLE vernr
+      FROM prps
+      INTO wa_list-vernr
+      WHERE pspnr = wa_list-pspel.
+
+      wa_vernr-vernr = wa_list-vernr.
+      APPEND wa_vernr TO it_vernr.
+      CLEAR wa_vernr.
+
+    APPEND wa_list TO it_list.
+    CLEAR wa_list.
+  ENDSELECT.
+  DELETE it_list WHERE nplnr = space.
+  SORT it_vernr BY vernr.
+  DELETE ADJACENT DUPLICATES FROM it_vernr.
+  DELETE it_vernr WHERE vernr = '00000000'.
+
+  REFRESH it_mail_list.
+  SELECT *
+    FROM zact_mail
+    INTO TABLE it_mail_list
+    FOR ALL ENTRIES IN it_vernr
+    WHERE vernr = it_vernr-vernr.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  PODETAILS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM podetails .
+  LOOP AT it_mail_list INTO wa_mail_list.
+    LOOP AT it_list INTO wa_list WHERE vernr = wa_mail_list-vernr.
+    CALL FUNCTION 'BAPI_PO_GETDETAIL1'
+      EXPORTING
+       purchaseorder            = wa_list-ebeln
+       account_assignment       = 'X'
+       item_text                = 'X'
+       header_text              = 'X'
+       delivery_address         = 'X'
+       version                  = 'X'
+       services                 = 'X'
+       serialnumbers            = 'X'
+       invoiceplan              = 'x'
+     IMPORTING
+       poheader                 = poheader
+       poexpimpheader           = poexpimpheader
+     TABLES
+       return                   = return
+       poitem                   = poitem
+       poaddrdelivery           = poaddrdelivery
+       poschedule               = poschedule
+       poaccount                = poaccount
+       pocondheader             = pocondheader
+       pocond                   = pocond
+       polimits                 = polimits
+       pocontractlimits         = pocontractlimits
+       poservices               = poservices
+       posrvaccessvalues        = posrvaccessvalues
+       potextheader             = potextheader
+       potextitem               = potextitem
+       poexpimpitem             = poexpimpitem
+       pocomponents             = pocomponents
+       poshippingexp            = poshippingexp
+       pohistory                = pohistory
+       pohistory_totals         = pohistory_totals
+       poconfirmation           = poconfirmation
+       allversions              = allversions
+       popartner                = popartner
+       extensionout             = extensionout
+       serialnumber             = serialnumber
+       invplanheader            = invplanheader
+       invplanitem              = invplanitem
+       pohistory_ma             = pohistory_ma.
+
+       PERFORM prepare_mail_body.
+       CLEAR wa_list.
+      ENDLOOP.
+      PERFORM sendmail.
+      REFRESH: it_final.
+      CLEAR wa_mail_list.
+    ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SENDMAIL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM sendmail .
+  REFRESH: it_message.
+  wa_message = '<HTML><HEAD><TITLE></TITLE><STYLE>'.
+  APPEND wa_message TO it_message.
+  wa_message = 'table {'.
+  APPEND wa_message TO it_message.
+  wa_message = 'color: #333; /* Lighten up font color */'.
+  APPEND wa_message TO it_message.
+  wa_message = 'font-family: Helvetica, Arial, sans-serif; /* Nicer font */'.
+  APPEND wa_message TO it_message.
+  wa_message = 'width: 100%;'.
+  APPEND wa_message TO it_message.
+  wa_message = 'border-collapse: collapse;'.
+  APPEND wa_message TO it_message.
+  wa_message = 'border-spacing: 0;'.
+  APPEND wa_message TO it_message.
+  wa_message = '}'.
+  APPEND wa_message TO it_message.
+  wa_message = 'td, th { border: 1px solid #CCC; height: 30px; } /* Make cells a bit taller */'.
+  APPEND wa_message TO it_message.
+  wa_message = 'th {'.
+  APPEND wa_message TO it_message.
+  wa_message = 'background: #F3F3F3; /* Light grey background */'.
+  APPEND wa_message TO it_message.
+  wa_message = 'font-weight: bold; /* font to be bold */'.
+  APPEND wa_message TO it_message.
+  wa_message = '}'.
+  APPEND wa_message TO it_message.
+  wa_message = 'td {'.
+  APPEND wa_message TO it_message.
+  wa_message = 'background: #FAFAFA; /* Lighter grey background */'.
+  APPEND wa_message TO it_message.
+  wa_message = 'text-align: center; /* Center our text */'.
+  APPEND wa_message TO it_message.
+  wa_message = '}'.
+  APPEND wa_message TO it_message.
+  wa_message = '.active {'.
+  APPEND wa_message TO it_message.
+  wa_message = 'color: red;'.
+  APPEND wa_message TO it_message.
+  wa_message = '}'.
+  APPEND wa_message TO it_message.
+  wa_message = '</STYLE><BODY>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TABLE>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TR>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> PO Number </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Delivery Date </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Company Code </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> PO Item </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Material No. </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Description. </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Plant </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '<TH> Price Unit </TH>'.
+  APPEND wa_message TO it_message.
+  wa_message = '</TR>'.
+  APPEND wa_message TO it_message.
+  LOOP AT it_final INTO wa_final.
+    wa_message = '<TR>'.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-po_number '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    PERFORM date_format USING wa_final-delv_date.
+    IF wa_final-delv_date = sy-datum.
+      wa_message = '<TD class="active">Today</TD>'.
+    ELSE.
+      CONCATENATE '<TD>' tdate '</TD>' INTO wa_message.
+    ENDIF.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-comp_code '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-po_item '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-material '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-short_text '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-plant '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    CONCATENATE '<TD>' wa_final-po_unit '</TD>' INTO wa_message.
+    APPEND wa_message TO it_message.
+    wa_message = '</TR>'.
+    APPEND wa_message TO it_message.
+    CLEAR wa_final.
+  ENDLOOP.
+  wa_message = '</TABLE>'.
+  APPEND wa_message TO it_message.
+  wa_message = '</BODY></HTML>'.
+  APPEND wa_message TO it_message.
+  CLEAR : wa_message.
+
+  CLEAR : it_receivers, it_packing_list.
+
+**Populate the subject/generic message attributes
+  gd_doc_data-obj_langu = sy-langu.
+  gd_doc_data-obj_name  = 'SAPRPT'.
+  PERFORM date_format using sy-datum.
+  CONCATENATE 'Delivery Assignments in 15 Days as on' tdate INTO gd_doc_data-obj_descr SEPARATED BY space.
+  gd_doc_data-sensitivty = 'F'.
+
+  DESCRIBE TABLE it_message LINES wa_packing_list-body_num.
+  gd_doc_data-doc_size = strlen( wa_message ) + ( ( wa_packing_list-body_num  - 1 ) * 255 ) .
+
+* Describe the body of the message
+  CLEAR wa_packing_list.
+  DESCRIBE TABLE it_message LINES wa_packing_list-body_num.
+  wa_packing_list-transf_bin = space.
+  wa_packing_list-head_start = 1.
+  wa_packing_list-head_num = 0.
+  wa_packing_list-body_start = 1.
+  wa_packing_list-doc_type = 'HTML'.
+  wa_packing_list-doc_size = wa_packing_list-body_num * 255 .
+  APPEND wa_packing_list TO it_packing_list.
+
+  PERFORM build_xls_data_table.
+
+* Creation of the Document Attachment
+  REFRESH: it_objbin.
+  LOOP AT l_xml_table INTO wa_xml.
+    CLEAR wa_objbin.
+    wa_objbin-line = wa_xml-data.
+    APPEND wa_objbin TO it_objbin.
+    CLEAR wa_objbin.
+  ENDLOOP.
+
+  REFRESH: it_objhead.
+  DESCRIBE TABLE it_objbin LINES tab_lines.
+  CLEAR: wa_objhead.
+  PERFORM date_format using sy-datum.
+  CONCATENATE 'Delivery Assignments in 15 Days as on' tdate INTO wa_objhead SEPARATED BY space.
+  APPEND wa_objhead TO it_objhead.
+  CLEAR: wa_objhead.
+
+  wa_packing_list-doc_size = wa_packing_list-body_num * 255 .
+  wa_packing_list-transf_bin = 'X'.
+  wa_packing_list-head_start = 1.
+  wa_packing_list-head_num = 0.
+  wa_packing_list-body_start = 1.
+  wa_packing_list-body_num = wa_packing_list-body_num.
+  PERFORM date_format using sy-datum.
+  CONCATENATE 'Delivery Assignments in 15 Days as on' tdate INTO wa_packing_list-obj_name SEPARATED BY space.
+  CONCATENATE 'Delivery Assignments in 15 Days as on' tdate INTO wa_packing_list-obj_descr SEPARATED BY space.
+  wa_packing_list-doc_type = 'XLS'.
+  APPEND wa_packing_list TO it_packing_list.
+
+***MAIL TO ACCOUNT MANAGER
+   CLEAR it_receivers.
+   wa_receivers-receiver = wa_mail_list-mail_id.
+   wa_receivers-rec_type = 'U'.
+   wa_receivers-com_type = 'INT'.
+   wa_receivers-notif_del = 'X'.
+   wa_receivers-notif_ndel = 'X'.
+   APPEND wa_receivers TO it_receivers.
+   CLEAR wa_receivers.
+
+***To send mail with attachment
+  CALL FUNCTION 'SO_DOCUMENT_SEND_API1'
+   EXPORTING
+     document_data                   = gd_doc_data
+     commit_work                     = 'X'
+  IMPORTING
+    sent_to_all                      = gd_sent_all
+  TABLES
+    packing_list                     = it_packing_list
+    object_header                    = it_objhead
+*    contents_bin                     = it_attachment
+    contents_txt                     = it_message
+    contents_hex                     = it_objbin
+    receivers                        = it_receivers
+  EXCEPTIONS
+    too_many_receivers               = 1
+    document_not_sent                = 2
+    document_type_not_exist          = 3
+    operation_no_authorization       = 4
+    parameter_error                  = 5
+    x_error                          = 6
+    enqueue_error                    = 7
+    OTHERS                           = 8
+           .
+    IF sy-subrc = 0.
+       WAIT UP TO 2 SECONDS.
+       SUBMIT rsconn01 WITH mode = 'INT'
+                       WITH output = ' '
+                       AND RETURN.
+    ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  PREPATE_MAIL_BODY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM prepare_mail_body .
+  CLEAR wa_poitem.
+  LOOP AT poitem INTO wa_poitem.
+    wa_final-po_number  = poheader-po_number.
+    wa_final-delv_date  = wa_list-eindt.
+    wa_final-comp_code  = poheader-comp_code.
+    wa_final-po_item    = wa_poitem-po_item.
+    wa_final-short_text = wa_poitem-short_text.
+    wa_final-material   = wa_poitem-material.
+    wa_final-plant      = wa_poitem-plant.
+    wa_final-quantity   = wa_poitem-quantity.
+    wa_final-net_price  = wa_poitem-net_price.
+    wa_final-po_unit    = wa_poitem-po_unit.
+    APPEND wa_final TO it_final.
+    CLEAR: wa_poitem, wa_final.
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DATE_FORMAT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM date_format USING date.
+  CLEAR tdate.
+  CONCATENATE date+6(2)
+              date+4(2)
+              date+0(4)
+              INTO tdate SEPARATED BY '.'.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_XLS_DATA_TABLE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM build_xls_data_table .
+* Creating a ixml Factory
+  l_ixml = cl_ixml=>create( ).
+* Creating the DOM Object Model
+  l_document = l_ixml->create_document( ).
+* Create Root Node 'Workbook'
+  l_element_root  = l_document->create_simple_element( name = 'Workbook'  parent = l_document ).
+  l_element_root->set_attribute( name = 'xmlns'  value = 'urn:schemas-microsoft-com:office:spreadsheet' ).
+  ns_attribute = l_document->create_namespace_decl( name = 'ss'  prefix = 'xmlns'  uri = 'urn:schemas-microsoft-com:office:spreadsheet' ).
+  l_element_root->set_attribute_node( ns_attribute ).
+  ns_attribute = l_document->create_namespace_decl( name = 'x'  prefix = 'xmlns'  uri = 'urn:schemas-microsoft-com:office:excel' ).
+  l_element_root->set_attribute_node( ns_attribute ).
+* Create node for document properties.
+  r_element_properties = l_document->create_simple_element( name = 'TEST_REPORT'  parent = l_element_root ).
+  l_value = sy-uname.
+  l_document->create_simple_element( name = 'Author'  value = l_value  parent = r_element_properties  ).
+* Styles
+  r_styles = l_document->create_simple_element( name = 'Styles'  parent = l_element_root  ).
+* Style for Header
+  r_style  = l_document->create_simple_element( name = 'Style'   parent = r_styles  ).
+  r_style->set_attribute_ns( name = 'ID'  prefix = 'ss'  value = 'Header' ).
+  r_format  = l_document->create_simple_element( name = 'Font'  parent = r_style  ).
+  r_format->set_attribute_ns( name = 'Bold'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Interior' parent = r_style  ).
+  r_format->set_attribute_ns( name = 'Color'   prefix = 'ss'  value = '#92D050' ).
+  r_format->set_attribute_ns( name = 'Pattern' prefix = 'ss'  value = 'Solid' ).
+  r_format  = l_document->create_simple_element( name = 'Alignment'  parent = r_style  ).
+  r_format->set_attribute_ns( name = 'Vertical'  prefix = 'ss'  value = 'Center' ).
+  r_format->set_attribute_ns( name = 'WrapText'  prefix = 'ss'  value = '1' ).
+  r_border  = l_document->create_simple_element( name = 'Borders'  parent = r_style ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Bottom' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Left' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Top' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Right' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+* Style for Data
+  r_style1  = l_document->create_simple_element( name = 'Style'   parent = r_styles  ).
+  r_style1->set_attribute_ns( name = 'ID'  prefix = 'ss'  value = 'Data' ).
+  r_border  = l_document->create_simple_element( name = 'Borders'  parent = r_style1 ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Bottom' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Left' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Top' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+  r_format  = l_document->create_simple_element( name = 'Border'   parent = r_border  ).
+  r_format->set_attribute_ns( name = 'Position'  prefix = 'ss'  value = 'Right' ).
+  r_format->set_attribute_ns( name = 'LineStyle'  prefix = 'ss'  value = 'Continuous' ).
+  r_format->set_attribute_ns( name = 'Weight'  prefix = 'ss'  value = '1' ).
+* Worksheet
+  r_worksheet = l_document->create_simple_element( name = 'Worksheet'  parent = l_element_root ).
+  r_worksheet->set_attribute_ns( name = 'Name'  prefix = 'ss'  value = 'Sheet1' ).
+* Table
+  r_table = l_document->create_simple_element( name = 'Table'  parent = r_worksheet ).
+  r_table->set_attribute_ns( name = 'FullColumns'  prefix = 'x'  value = '1' ).
+  r_table->set_attribute_ns( name = 'FullRows'     prefix = 'x'  value = '1' ).
+** Column Formatting
+* Sr. No.
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '40' ).
+* PO Number
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '90' ).
+* Delivery Date
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '90' ).
+* Company Code
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '90' ).
+* PO Item
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '40' ).
+* Description
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '200' ).
+* Material Code
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '100' ).
+* Plant
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '90' ).
+* PO Unit
+  r_column = l_document->create_simple_element( name = 'Column'  parent = r_table ).
+  r_column->set_attribute_ns( name = 'Width'  prefix = 'ss'  value = '40' ).
+* Blank Row
+  r_row = l_document->create_simple_element( name = 'Row'  parent = r_table ).
+************************************************************************************************* Column Headers Row
+  r_row = l_document->create_simple_element( name = 'Row'  parent = r_table ).
+  r_row->set_attribute_ns( name = 'AutoFitHeight'  prefix = 'ss'  value = '1' ).
+* Sr. No.
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Sr. No.'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* PO Number
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'PO Number'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* Delivery Date
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Delivery Date'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* Company Code
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Company Code'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* PO Item
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'PO Item'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* Description
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Delivery Date'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* Material Code
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Material Code'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* Plant
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'Plant'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+* PO Unit
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Header' ).
+  r_data = l_document->create_simple_element( name = 'Data'  value = 'PO Unit'  parent = r_cell ).
+  r_data->set_attribute_ns( name = 'Type'  prefix = 'ss' value = 'String' ).
+
+* Blank Row after Column Headers
+  r_row = l_document->create_simple_element( name = 'Row'  parent = r_table ).
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+  r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+  r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+********************************************************************************************************* Data Table
+  LOOP AT it_final INTO wa_final.
+    r_row = l_document->create_simple_element( name = 'Row'  parent = r_table ).
+* Sr. No.
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = sy-tabix.
+    CONDENSE l_value NO-GAPS.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).           " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'Number' ).                               " Cell format
+* PO Number
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-po_number.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).           " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                               " Cell format
+* Delivery Date
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    PERFORM date_format USING wa_final-delv_date.
+    l_value = tdate.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).           " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                               " Cell format
+* Company Code
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-comp_code.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).           " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                               " Cell format
+* PO Item
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-po_item.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).          " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                              " Cell format
+* Description
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-short_text.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).          " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                              " Cell format
+* Material Code
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-material.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).          " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                              " Cell format
+* Plant
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-plant.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).          " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                              " Cell format
+* PO Unit
+    r_cell = l_document->create_simple_element( name = 'Cell'  parent = r_row ).
+    r_cell->set_attribute_ns( name = 'StyleID'  prefix = 'ss'  value = 'Data' ).
+    l_value = wa_final-po_unit.
+    r_data = l_document->create_simple_element( name = 'Data'  value = l_value   parent = r_cell ).          " Data
+    r_data->set_attribute_ns( name = 'Type'  prefix = 'ss'  value = 'String' ).                              " Cell format
+  ENDLOOP.
+* Creating a Stream Factory
+  l_streamfactory = l_ixml->create_stream_factory( ).
+* Connect Internal XML Table to Stream Factory
+  l_ostream = l_streamfactory->create_ostream_itable( table = l_xml_table ).
+* Rendering the Document
+  l_renderer = l_ixml->create_renderer( ostream  = l_ostream  document = l_document ).
+  l_rc = l_renderer->render( ).
+* Saving the XML Document
+  l_xml_size = l_ostream->get_num_written_raw( ).
+ENDFORM.

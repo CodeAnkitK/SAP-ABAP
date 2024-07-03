@@ -1,0 +1,157 @@
+*&---------------------------------------------------------------------*
+*& Report  ZPS_BDC_ACT_CREATE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zps_bdc_act_create.
+
+TABLES: bapi_bus2002_act_new, bapiret2, bapiparex.
+
+TYPES: BEGIN OF record,
+          i_number  TYPE nw_aufnr,
+          activity   TYPE cn_vornr,
+          control_key	 TYPE steus,
+          plant	 TYPE werks_d,
+          description	TYPE ltxa1,
+          wbs_element	TYPE ps_posid,
+          work_activity	TYPE arbeit,
+          un_work   TYPE arbeite,
+          duration_normal	  TYPE daunor,
+          duration_normal_unit        TYPE daunore,
+          info_rec  TYPE infnr,
+          purch_org  TYPE ekorg,
+          pur_group  TYPE ekgrp,
+          matl_group  TYPE matkl,
+          price	TYPE preis,
+          currency  TYPE waers,
+          cost_elem	TYPE kstar,
+          operation_qty	TYPE cx_losvg,
+          operation_measure_unit TYPE vorme,
+          preq_name TYPE afnam,
+       END OF record.
+
+DATA: t_upload TYPE STANDARD TABLE OF record.
+DATA: w_upload TYPE record.
+
+DATA: it_raw TYPE truxs_t_text_data.
+DATA: t_line TYPE STANDARD TABLE OF tline.
+DATA: w_line TYPE tline.
+
+*********************** BAPI CALL
+DATA: i_number     TYPE bapi_network_list-network,
+      it_activity	 TYPE	STANDARD TABLE OF bapi_bus2002_act_new,
+      wa_activity	 TYPE	bapi_bus2002_act_new,
+      et_return	   TYPE	STANDARD TABLE OF bapiret2,
+      extensionin  TYPE	STANDARD TABLE OF bapiparex,
+      extensionout TYPE	STANDARD TABLE OF bapiparex,
+      et_return1   TYPE STANDARD TABLE OF bapiret2,
+      wait         TYPE bapita-wait,
+      return       TYPE bapiret2.
+
+SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: p_file TYPE localfile.
+SELECTION-SCREEN: END OF BLOCK b1.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      field_name = 'P_FILE'
+    IMPORTING
+      file_name  = p_file.
+
+*********Start of Selection************
+START-OF-SELECTION.
+    PERFORM data_upload.
+END-OF-SELECTION.
+    PERFORM call_transaction_rec.
+
+*&---------------------------------------------------------------------*
+*&      Form  CALL_TRANSACTION_REC
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM call_transaction_rec .
+  CLEAR: w_upload.
+  LOOP AT t_upload INTO w_upload.
+         REFRESH it_activity.
+         clear i_number.
+         i_number =  w_upload-i_number.
+         wa_activity-activity = w_upload-activity.
+         wa_activity-control_key     = w_upload-control_key.
+         wa_activity-plant           = w_upload-plant.
+         wa_activity-description     = w_upload-description.
+         wa_activity-wbs_element     = w_upload-wbs_element.
+         wa_activity-work_activity   = w_upload-work_activity.
+         wa_activity-un_work         = w_upload-un_work.
+         wa_activity-duration_normal = w_upload-duration_normal.
+         wa_activity-duration_normal_unit = w_upload-duration_normal_unit.
+         wa_activity-info_rec   = w_upload-info_rec.
+         wa_activity-purch_org  = w_upload-purch_org.
+         wa_activity-pur_group  = w_upload-pur_group.
+         wa_activity-matl_group = w_upload-matl_group.
+         wa_activity-price      = w_upload-price.
+         wa_activity-currency   = w_upload-currency.
+         wa_activity-cost_elem  = w_upload-cost_elem.
+         wa_activity-operation_qty = w_upload-operation_qty.
+         wa_activity-operation_measure_unit = w_upload-operation_measure_unit.
+         wa_activity-preq_name = w_upload-preq_name.
+
+         APPEND wa_activity TO  it_activity.
+
+    CALL FUNCTION 'BAPI_PS_INITIALIZATION'.
+
+    CALL FUNCTION 'BAPI_BUS2002_ACT_CREATE_MULTI'
+      EXPORTING
+        i_number           = i_number
+      TABLES
+        it_activity        = it_activity
+        et_return          = et_return
+        extensionin        = extensionin
+        extensionout       = extensionout
+              .
+
+    CALL FUNCTION 'BAPI_PS_PRECOMMIT'
+     TABLES
+       et_return       = et_return1
+              .
+BREAK-POINT.
+    CLEAR: w_upload.
+    CLEAR: wa_activity.
+  ENDLOOP.
+ENDFORM.                    " CALL_TRANSACTION_REC
+*&---------------------------------------------------------------------*
+*&      Form  DATA_UPLOAD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM data_upload .
+
+  REFRESH: t_upload.
+
+  CALL FUNCTION 'TEXT_CONVERT_XLS_TO_SAP'
+    EXPORTING
+      i_field_seperator    = 'X'
+      i_line_header        = 'X'
+      i_tab_raw_data       = it_raw
+      i_filename           = p_file
+    TABLES
+      i_tab_converted_data = t_upload
+    EXCEPTIONS
+      conversion_failed    = 1
+      OTHERS               = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.                    " DATA_UPLOAD

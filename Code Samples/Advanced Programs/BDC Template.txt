@@ -1,0 +1,134 @@
+*&---------------------------------------------------------------------*
+*& Report  ZMM_BDC_VENDOR
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT ZMM_BDC_VENDOR.
+TYPE-POOLS: TRUXS.
+
+TYPES: BEGIN OF record,
+
+      END OF record.
+
+DATA: t_upload TYPE STANDARD TABLE OF record.
+DATA: w_upload TYPE record.
+
+DATA: it_raw TYPE truxs_t_text_data.
+DATA: t_line TYPE STANDARD TABLE OF tline.
+DATA: w_line TYPE tline.
+
+************BDC Data
+DATA:   t_bdcdata TYPE STANDARD TABLE OF bdcdata .
+DATA:   t_messtab TYPE STANDARD TABLE OF bdcmsgcoll.
+
+DATA:   w_bdcdata TYPE bdcdata .
+DATA:   w_messtab TYPE bdcmsgcoll.
+DATA:  bdcmode TYPE c.
+
+SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: p_rd1 RADIOBUTTON GROUP rg DEFAULT 'X',
+p_rd2 RADIOBUTTON GROUP rg.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: p_file TYPE localfile.
+SELECTION-SCREEN: END OF BLOCK b1.
+
+AT SELECTION-SCREEN.
+  IF p_rd1 NE space.
+    bdcmode = 'E'.
+  ELSE.
+    bdcmode = 'A'.   "N,S
+  ENDIF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      field_name = 'P_FILE'
+    IMPORTING
+      file_name  = p_file.
+
+*********Start of Selection************
+START-OF-SELECTION.
+    PERFORM data_upload.
+END-OF-SELECTION.
+    PERFORM call_transaction_rec.
+    
+*&---------------------------------------------------------------------*
+*&      Form  CALL_TRANSACTION_REC
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM call_transaction_rec .
+  CLEAR: w_upload.
+  LOOP AT t_upload INTO w_upload.
+
+    REFRESH:t_bdcdata.
+    CLEAR:w_bdcdata.
+
+
+
+    CALL TRANSACTION 'MM01' USING t_bdcdata MODE bdcmode.
+    IF sy-subrc = 0.
+      MESSAGE s000(8i) WITH 'Data has been Saved'.
+    ELSE.
+      CONTINUE.
+    ENDIF.
+    CLEAR: w_upload.
+  ENDLOOP.
+ENDFORM.                    " CALL_TRANSACTION_REC
+*----------------------------------------------------------------------*
+* Start new screen *
+*----------------------------------------------------------------------*
+FORM bdc_dynpro USING program dynpro.
+  CLEAR w_bdcdata.
+  w_bdcdata-program = program.
+  w_bdcdata-dynpro = dynpro.
+  w_bdcdata-dynbegin = 'X'.
+  APPEND w_bdcdata TO t_bdcdata.
+ENDFORM. "bdc_dynpro
+
+*----------------------------------------------------------------------*
+* Insert field *
+*----------------------------------------------------------------------*
+FORM bdc_field USING fnam fval.
+  CLEAR w_bdcdata.
+  w_bdcdata-fnam = fnam.
+  w_bdcdata-fval = fval.
+  APPEND w_bdcdata TO t_bdcdata.
+
+ENDFORM. "bdc_field
+*&---------------------------------------------------------------------*
+*&      Form  DATA_UPLOAD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM data_upload .
+
+  REFRESH: t_upload.
+
+  CALL FUNCTION 'TEXT_CONVERT_XLS_TO_SAP'
+    EXPORTING
+      i_field_seperator    = 'X'
+      i_line_header        = 'X'
+      i_tab_raw_data       = it_raw
+      i_filename           = p_file
+    TABLES
+      i_tab_converted_data = t_upload
+    EXCEPTIONS
+      conversion_failed    = 1
+      OTHERS               = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.                    " DATA_UPLOAD
