@@ -1,21 +1,20 @@
 *&---------------------------------------------------------------------*
 *& Report ZABAP_PARALLEL_CURSOR
 *&---------------------------------------------------------------------*
-*&
-*&Key Points in Parallel Cursors:
+*&    Key Points in Parallel Cursors:
+*&---------------------------------------------------------------------*
+*&    Sorting: Both tables must be sorted by the field you are comparing (CUSTOMER_ID in this case).
 *
-*&Sorting: Both tables must be sorted by the field you are comparing (CUSTOMER_ID in this case).
+*&    Efficiency: This technique avoids the need for nested loops, which can be inefficient with large datasets.
 *
-*&Efficiency: This technique avoids the need for nested loops, which can be inefficient with large datasets.
-*
-*&Advancing Cursors: Cursors (LV_INDEX_CUST and LV_INDEX_ORD) are advanced based on the comparison to
+*&    Advancing Cursors: Cursors (LV_INDEX_CUST and LV_INDEX_ORD) are advanced based on the comparison to
 *&    minimize unnecessary checks.
 *
-*Loop Logic: The loop continues as long as there are entries in both tables.
-*   The IF condition checks for a match on customer_id. If a match is found,
-*   it processes the current entries. If the current customer ID is less than the
-*   order's customer ID, the loop advances the customer index to look for a match.
-*   If the customer ID is greater, it advances the order index to find the next possible match.
+*    Loop Logic: The loop continues as long as there are entries in both tables.
+*    The IF condition checks for a match on customer_id. If a match is found,
+*    it processes the current entries. If the current customer ID is less than the
+*    order's customer ID, the loop advances the customer index to look for a match.
+*    If the customer ID is greater, it advances the order index to find the next possible match.
 *&---------------------------------------------------------------------*
 REPORT zabap_parallel_cursor.
 
