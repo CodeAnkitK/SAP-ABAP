@@ -37,5 +37,22 @@ ODATA is designed to help organizations publish their data on the web, allowing 
 4. **Associations:**
    - **Associations** are relationships between two entity types. They represent how entities within a data model can be interconnected. Associations can be simple (one-to-one), complex (one-to-many), or many-to-many relationships, depending on the cardinality between the entity types. For example, in a company's data model, an association might define a relationship between `Employee` and `Department`, where each employee belongs to one department, and each department can have multiple employees.
 
+--- 
 
+# DPC & MPC
+
+DPC (Data Provider Class) and MPC (Model Provider Class) play crucial roles in the architecture of an OData service. These classes are part of the SAP NetWeaver Gateway, which facilitates the connection between SAP backend systems and client interfaces using OData services. Here’s how they differ:
+
+### 1. Model Provider Class (MPC)
+- **Purpose:** The Model Provider Class is responsible for defining the data model of the OData service. This includes the structure of the entity types, entity sets, associations, and function imports that the service will expose.
+- **Functionality:** MPC describes the metadata of the OData service, essentially the schema that dictates what the data looks like and how it is related. It does not handle any data logic or data retrieval itself; instead, it provides a framework that tells the OData service what data can be accessed and how it is structured.
+- **Example Tasks:** In MPC, you might define the properties of an entity, the keys that identify it, and its relationship to other entities. This class generates the metadata document required by the OData protocol to inform clients about the structure of the service.
+
+### 2. Data Provider Class (DPC)
+- **Purpose:** The Data Provider Class handles the logic for accessing, modifying, and managing the data as requested by OData service calls. It acts upon the model defined by the MPC.
+- **Functionality:** DPC includes the implementation of CRUD (Create, Read, Update, Delete) operations on the data. It interacts with the backend (such as an SAP system or a database) to fetch, modify, or save data based on the requests made to the OData service.
+- **Example Tasks:** In a DPC, you would implement methods to retrieve data from a database based on query options provided by the client, update records in response to an HTTP PUT request, or handle complex business logic during data manipulation.
+
+### Summary
+The **MPC** is about defining what data looks like and how it's structured in an OData service (the metadata), while the **DPC** is about the actual manipulation and retrieval of data (the implementation). Both are essential for building robust OData services, with the MPC providing the blueprint and the DPC carrying out the construction work based on that blueprint. This separation of concerns allows developers to clearly delineate between the service's structure and its operational logic.
 
