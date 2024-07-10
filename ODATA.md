@@ -21,6 +21,8 @@ ODATA, short for Open Data Protocol, is an open protocol that allows the creatio
 
 ODATA is designed to help organizations publish their data on the web, allowing developers to build rich interactive applications that can query these data sources live. It simplifies the querying process and integrates well with modern web technologies, making it a powerful tool for web developers and businesses alike.
 
+--- 
+
 # Data Modal 
 
 1. **Data Model:**
