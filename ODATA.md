@@ -41,6 +41,8 @@ ODATA is designed to help organizations publish their data on the web, allowing 
 
 # Service Implementation 
 
+**T-Code:** SICF. 
+
 In OData (Open Data Protocol), **service implementation** refers to the actual coding and configuration that enables an OData service to perform operations such as Create, Read, Update, Delete (CRUD) on data sources. This implementation is crucial for providing an interface to client applications, allowing them to interact with data in a standardized manner over the web. Here's an outline of what service implementation involves in an OData context, particularly focusing on SAP environments using SAP Gateway:
 
 ### Components of OData Service Implementation
