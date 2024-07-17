@@ -1,22 +1,22 @@
-1.  This data type has a default length of one and a blank default value.\
+1\. This data type has a default length of one and a blank default value.\
 A: I\
 B: N\
 **C: C**\
 D: D
 
-2.      The event that is processed after all data has been read but before the list is displayed is:\
+2\. The event that is processed after all data has been read but before the list is displayed is:\
 **A: END-OF-PAGE.**\
 B: START-OF-SELECTION.\
 C: END-OF-SELECTION.\
 D: AT LINE-SELECTION.
 
-3.      The business (non-technical) definition of a table field is determined by the field’s \_\_\_\_.\
+3\. The business (non-technical) definition of a table field is determined by the field’s \_\_\_\_.\
 A: domain\
 B: field name\
 C: data type\
 **D: data element**
 
-4.      What will be output by the code below?\
+3\. What will be output by the code below?\
 *DATA: alph type I value 3.\
 write: alph.\
 WHILE alph > 2.\
@@ -27,19 +27,19 @@ B: 3 2\
 C: 3 3 2\
 **D: 3 3**
 
-5.      To allow the user to enter a single value on a selection screen, use the ABAP\
+5\. To allow the user to enter a single value on a selection screen, use the ABAP\
 keyword \_\_\_\_.\
 A: SELECT-OPTIONS.\
 **B: PARAMETERS.**\
 C: RANGES.\
 D: DATA.
 
-6.      When modifying an internal table within LOOP AT itab. \_ ENDLOOP. you must\
+6\. When modifying an internal table within LOOP AT itab. \_ ENDLOOP. you must\
 include an index number.\
 A: True\
 **B: False**
 
-7.      If itab contains 20 rows, what will SY-TABIX equal when the program reaches the\
+7\. If itab contains 20 rows, what will SY-TABIX equal when the program reaches the\
 WRITE statement below?\
 SY-TABIX = 10.\
 LOOP AT itab.\
@@ -51,13 +51,13 @@ B: 10\
 **C: 20**\
 D: 30
 
-8.      To select one record for a matching primary key, use \_\_\_\_.\
+8\. To select one record for a matching primary key, use \_\_\_\_.\
 A: SELECT\
 B: SELECT INTO\
 **C: SELECT SINGLE**\
 D: SELECT ENTRY
 
-9.      In regard to MOVE-CORRESPONDING, which of the following is NOT a true\
+9\. In regard to MOVE-CORRESPONDING, which of the following is NOT a true\
 statement?\
 A: Moves the values of components with identical names.\
 B: Fields without a match are unchanged.\
@@ -81,7 +81,7 @@ B: Allow myparam and myparam2 to be ready for input during an error dialog.\
 C: Do not display myparam and myparam2 on the selection screen.\
 D: Display myparam and myparam2 only if both fields have default values.
 
-12\.  If a table contains many duplicate values for a field, minimize the number of\
+12\. If a table contains many duplicate values for a field, minimize the number of\
 records returned by using this SELECT statement addition.\
 A: MIN\
 B: ORDER BY\
@@ -127,9 +127,11 @@ B: Its key may be UNIQUE or NON-UNIQUE.\
 C: Entries are sorted according to its key when added.\
 D: A binary search is used when accessing rows by its key.
 
-19\. Function module source code may not call a subroutine.\
-A: True\
-**B: False**
+19\. Which of the following is NOT a numeric data type?\
+A: I\
+**B: N**\
+C: P\
+D: F
 
 20\.  Given:\
 DO.\
