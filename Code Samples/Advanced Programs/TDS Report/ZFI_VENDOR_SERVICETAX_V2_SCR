@@ -1,0 +1,51 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_VENDOR_SERVICETAX_V2_SCR
+*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+*                       SELECTION-SCREEN
+*----------------------------------------------------------------------*
+SELECTION-SCREEN : BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETER      :  p_bukrs  TYPE bkpf-bukrs OBLIGATORY DEFAULT '2011'.
+
+SELECT-OPTIONS :  s_gjahr FOR bkpf-gjahr NO INTERVALS NO-EXTENSION NO-DISPLAY ,
+                  s_hkont	FOR bsis-hkont,
+                  s_lifnr FOR lfa1-lifnr,
+                  s_projk FOR bsis-projk,  
+                  s_date  FOR bsis-budat OBLIGATORY,
+                  s_prctr FOR bsis-prctr,
+                  s_blart FOR bkpf-blart.
+SELECTION-SCREEN : END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b4 WITH FRAME TITLE text-004.
+SELECT-OPTIONS : s_prgid FOR anlu-prog_id.
+SELECT-OPTIONS : s_epid  FOR anlu-epi_id.
+SELECT-OPTIONS : s_docn  FOR anlu-doc_no.
+SELECT-OPTIONS : s_ownr  FOR anlu-owner_chnl.
+SELECTION-SCREEN END OF BLOCK b4.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE text-002.
+PARAMETERS     : p_alv RADIOBUTTON GROUP grp1.
+PARAMETERS     : p_list RADIOBUTTON GROUP grp1.
+PARAMETERS     : p_file  TYPE rlgrap-filename. "DEFAULT 'FILE.TXT'."'C:\Users\Admin\Desktop\Alhad\FILE.TXT' .
+PARAMETERS     : p_file1 TYPE rlgrap-filename.
+SELECTION-SCREEN END OF BLOCK b2.
+
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE text-005.
+*PARAMETERS p_test AS CHECKBOX.
+PARAMETERS: p_layout TYPE slis_vari.
+SELECTION-SCREEN END OF BLOCK b3.
+*----------------------------------------------------------------------*
+*                       AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  PERFORM validation.
+*  IF p_list IS NOT INITIAL.
+*    IF p_sap IS INITIAL.
+*      MESSAGE 'Please Enter File Name' TYPE 'E'.
+*    ENDIF.
+*  ENDIF.
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  PERFORM get_file_f4.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_layout.
+  PERFORM alv_variant_f4 CHANGING p_layout.

@@ -1,0 +1,465 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_VENDOR_SERVICETAX_V2_DNL
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  DOWNLOAD_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM download_data .
+
+  DATA : lv_final TYPE char1024,
+         lt_final TYPE TABLE OF char1024.
+
+  TYPES :BEGIN OF ty_final_new,
+           bukrs          TYPE bsis-bukrs,
+           hkont          TYPE bsis-hkont,
+           txt20          TYPE txt20_skat,
+           gjahr          TYPE bsis-gjahr,
+           belnr          TYPE bkpf-belnr,
+           buzei          TYPE buzei,
+           witht          TYPE witht,
+           witht_desc     TYPE txt40,    
+           wt_withcd      TYPE wt_withcd,
+           wt_withcd_desc TYPE txt40,  
+           wt_qbshh       TYPE with_item-wt_qbshh,
+           wt_qsshh       TYPE with_item-wt_qsshh,
+           qsatz          TYPE wt_qsatz,
+           inv_type       TYPE string,
+           ebeln          TYPE bseg-ebeln,     
+           inv            TYPE bseg-belnr,
+           inv_gjahr      TYPE bseg-gjahr,                
+           inv_date       TYPE bkpf-budat,
+           xref2          TYPE bseg-xref2,
+           xref3          TYPE bseg-xref3,
+           hwbas          TYPE hwbas_bses,
+           fwbas          TYPE fwbas_bses,
+           hwste          TYPE hwste,
+           fwste          TYPE fwste,
+           sgtxt          TYPE bsis-sgtxt,
+           lifnr          TYPE lfa1-lifnr,
+           name1          TYPE lfa1-name1,
+           stcd3          TYPE lfa1-stcd3,  
+           land1          TYPE lfa1-land1,   
+           j_1ipanno      TYPE j_1imovend-j_1ipanno,
+           address        TYPE string,
+           dmbtr          TYPE bsik-dmbtr,
+           wrbtr          TYPE bsis-wrbtr,
+           budat          TYPE bsik-budat,
+           mwskz          TYPE mwskz,
+
+           cmmas          TYPE string,      
+           progid         TYPE zcm_doch-prog_id,  
+           epiid          TYPE zcm_dm_epi-epi_id,
+           ownid          TYPE anlu-owner_chnl,   
+           dm_no          TYPE zcm_dm_epi-doc_no, 
+           anln1          TYPE anla-anln1,        
+           anln2          TYPE anla-anln2,       
+           txt50          TYPE anla-txt50,       
+
+           bktxt          TYPE bkpf-bktxt,
+           ldgrp          TYPE bkpf-ldgrp,
+           blart          TYPE bkpf-blart,
+           augbl          TYPE bsis-augbl,
+           augdt          TYPE bsik-augdt,
+           xblnr          TYPE bsis-xblnr,
+
+           kostl          TYPE bsis-kostl,
+           projk          TYPE bsis-projk,
+           usnam          TYPE bkpf-usnam,
+           vbund          TYPE bsis-vbund,
+           bldat          TYPE bsis-bldat,
+           cpudt          TYPE bkpf-cpudt,
+           hwaer          TYPE bkpf-hwaer,
+           waers          TYPE bsik-waers,
+           gkont          TYPE bseg-hkont, 
+           g_desc         TYPE skat-txt20, 
+           tds_bal        TYPE bsis-wrbtr,
+           gl_bal         TYPE bsis-wrbtr, 
+           stblg          TYPE bkpf-stblg,       
+           stjah          TYPE bkpf-stjah,        
+           rev_date       TYPE budat, 
+           zuonr          TYPE dzuonr, 
+           prctr          TYPE bseg-prctr, 
+           segment        TYPE bseg-segment,
+         END OF ty_final_new.
+
+  DATA : ls_final TYPE ty_final_new.
+
+  CONCATENATE '"Co.Code",'
+              '"GL Acct",'
+              '"GL Acct Desc",'
+              '"Document No",'
+              '"Invoice No",'
+              '"Invoice Booking date",'
+              '"Tax Code",'
+              '"Tax Amount",'
+              '"W/tax type",'
+              '"W/tax type Desc",'
+              '"W/tax code",'
+              '"W/tax code Desc",'
+              '"TDS Amount",'
+              '"Base Amount of TDS",'
+              '"Rate of TDS",'
+              '"Amount in lcur.",'
+              '"Invoice Type",'
+              '"PO Number",'
+              '"Vendor",'
+              '"Vendor Desc",'
+              '"Vendor GST No",'
+              '"Place of Supply",'
+              '"PAN No",'
+              '"Address",'
+              '"Payment Date",'
+              '"Reference",'
+              '"Document Header Text",'
+              '"Ledger Grp",'
+              '"Doc Type",'
+              '"Clrng doc.",'
+              '"Channel Master",' 
+              '"EPI/Prog ID",'    
+              '"Owner ID",'       
+              '"Deal Memo No.",'  
+              '"Asset no.",'      
+              '"Asset Subno.",'  
+              '"Asset Descr.",'   
+              '"Cost Ctr",'
+              '"WBS Element",'
+              '"User Name",'
+              '"Tr.Prt.",'
+              '"Pstng Date",'
+              '"Doc. Date.",'
+              '"Entry Date",'
+              '"Doc curr",'
+              '"Amount in Doc curr",'
+              '"S.Tax Base Amt in LCurr.",'
+              '"Tax Amt in Doc Curr",'
+              '"Offset Account",'
+              '"Description",' 
+              '"Reverse Doc no",'
+              '"Reverse Doc year"'
+     INTO lv_final .
+  APPEND lv_final TO lt_final.
+  CLEAR : lv_final.
+
+  DATA: lv_hwste    TYPE string,
+        lv_wt_qbshh TYPE string,
+        lv_qsatz    TYPE string,
+        lv_dmbtr    TYPE string,
+        lv_wrbtr    TYPE string,
+        lv_waers    TYPE string,
+        lv_hwbas    TYPE string,
+        lv_fwste    TYPE string,
+        lv_wt_qsshh TYPE string.
+
+  DATA : lv_text TYPE fist-searchw.
+
+  LOOP AT gt_final INTO ls_final.
+    lv_hwste = ls_final-hwste.
+    CONDENSE lv_hwste.
+
+    lv_wt_qsshh  = ls_final-wt_qsshh.
+    CONDENSE lv_wt_qsshh.
+
+    lv_wt_qbshh = ls_final-wt_qbshh.
+    CONDENSE lv_wt_qbshh.
+
+    lv_qsatz = ls_final-qsatz.
+    CONDENSE lv_qsatz.
+
+    lv_dmbtr = ls_final-dmbtr.
+    CONDENSE lv_dmbtr.
+
+    lv_wrbtr = ls_final-wrbtr.
+    CONDENSE lv_wrbtr.
+
+    lv_waers = ls_final-waers.
+    CONDENSE lv_waers.
+
+    lv_hwbas = ls_final-hwbas.
+    CONDENSE lv_hwbas.
+
+    lv_fwste = ls_final-fwste.
+    CONDENSE lv_fwste.
+
+    CLEAR lv_text.
+    lv_text = ls_final-txt20.
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-txt20 = lv_text.
+
+
+    CLEAR lv_text.
+    lv_text = ls_final-name1.
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-name1 = lv_text.
+
+    CLEAR lv_text.
+    lv_text = ls_final-address.
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-address = lv_text.
+
+    CLEAR lv_text.
+    lv_text = ls_final-bktxt.
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-bktxt = lv_text.
+
+    CLEAR lv_text.
+    lv_text = ls_final-sgtxt.
+
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-sgtxt = lv_text.
+
+    CLEAR lv_text.
+    lv_text = ls_final-witht_desc.
+
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-witht_desc = lv_text.
+
+    CLEAR lv_text.
+    lv_text = ls_final-wt_withcd_desc.
+
+
+    CALL FUNCTION 'SF_SPECIALCHAR_DELETE'
+      EXPORTING
+        with_specialchar    = lv_text
+      IMPORTING
+        without_specialchar = lv_text
+      EXCEPTIONS
+        result_word_empty   = 1
+        OTHERS              = 2.
+    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+    ls_final-wt_withcd_desc = lv_text.
+
+
+    CONCATENATE '"' ls_final-bukrs '"' ','
+                   '"' ls_final-hkont '"' ','
+                   '"' ls_final-txt20 '"' ','
+                   '"' ls_final-belnr '"' ','
+*                   '"' ls_final-buzei '"' ','
+                   '"' ls_final-inv '"' ','
+                   '"' ls_final-inv_date '"' ','
+                   '"' ls_final-xref2 '"' ','
+                   '"' ls_final-xref2 '"' ','
+
+                   '"' ls_final-mwskz '"' ','
+                   '"' lv_hwste '"' ','
+                   '"' ls_final-witht '"' ','
+                   '"' ls_final-witht_desc '"' ','       
+                   '"' ls_final-wt_withcd '"' ','
+                   '"' ls_final-wt_withcd_desc '"' ','    
+                   '"' lv_wt_qbshh '"' ','
+                   '"' lv_wt_qsshh '"' ','
+                   '"' lv_qsatz '"' ','
+                    '"' lv_dmbtr '"'   ','
+                   '"' ls_final-inv_type '"' ','
+                   '"' ls_final-ebeln '"' ','           
+                   '"' ls_final-lifnr '"' ','
+                   '"' ls_final-name1 '"' ','
+                   '"' ls_final-stcd3 '"' ','           
+                   '"' ls_final-land1 '"' ','         
+                   '"' ls_final-j_1ipanno '"' ','
+
+                   '"' ls_final-address '"'  ','
+
+*                 '"' ls_final-hwaer '"' ','
+                   '"' ls_final-budat '"' ','
+                   '"' ls_final-xblnr '"'  ','
+                   '"' ls_final-bktxt '"' ','
+                   '"' ls_final-ldgrp '"' ','
+                   '"' ls_final-blart '"' ','
+                   '"' ls_final-augbl '"' ','
+                   '"' ls_final-sgtxt '"'  ','
+
+                   '"' ls_final-cmmas '"' ','  
+                   '"' ls_final-progid '"' ','  
+                   '"' ls_final-epiid '"' ','   
+                   '"' ls_final-ownid '"' ','  
+                   '"' ls_final-dm_no '"' ','  
+                   '"' ls_final-anln1 '"' ','  
+                   '"' ls_final-anln2 '"' ','  
+                   '"' ls_final-txt50 '"' ','  
+
+                   '"' ls_final-kostl '"' ','
+                   '"' ls_final-projk '"' ','
+                   '"' ls_final-usnam '"' ','
+                   '"' ls_final-vbund '"' ','
+                   '"' ls_final-budat '"' ','
+                   '"' ls_final-bldat '"' ','
+                   '"' ls_final-cpudt '"' ','
+
+*                 '"' ls_final-hwaer '"' ','
+                   '"' ls_final-waers '"' ','
+                    '"' lv_wrbtr '"' ','
+                    '"' lv_hwbas '"' ','
+                    '"' lv_fwste '"' ','
+                    '"' ls_final-gkont '"' ',' 
+                    '"' ls_final-g_desc '"' ',' 
+                    '"' ls_final-stblg '"' ','  
+                    '"' ls_final-stjah '"'      
+                   INTO lv_final.
+    APPEND lv_final TO lt_final.
+
+  ENDLOOP.
+
+
+  IF p_file IS INITIAL.
+    DATA: lv_file TYPE zdms_path-path.
+    SELECT SINGLE path
+           FROM zdms_path CLIENT SPECIFIED
+           INTO lv_file
+           WHERE mandt = sy-mandt
+    AND path_for = '11'.
+
+*    CONCATENATE lv_file p_file1 '.txt' INTO lv_file. 
+    CONCATENATE lv_file '/' p_file1 '.txt' INTO lv_file. 
+
+    p_file = lv_file.
+*    p_file = 'Z:\Audit\servicetax.txt'.
+  ELSE.
+
+    DATA: lv_file1 TYPE string.
+    lv_file1 =  p_file.
+    CALL FUNCTION 'GUI_DOWNLOAD'
+      EXPORTING
+        filename                = lv_file1
+        filetype                = 'ASC'
+      TABLES
+        data_tab                = lt_final
+      EXCEPTIONS
+        file_write_error        = 1
+        no_batch                = 2
+        gui_refuse_filetransfer = 3
+        invalid_type            = 4
+        OTHERS                  = 5.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+    ""
+
+  ENDIF.
+
+  DATA: lv_string TYPE string.
+  IF NOT lt_final[] IS INITIAL.
+
+    DATA i_path        TYPE zdms_path-path.
+    DATA e_path        TYPE zdms_path-path.
+    IF syst-opsys = 'Linux'.
+      i_path = p_file.
+      CALL FUNCTION 'ZDMS_PATH_CONVERTER'
+        EXPORTING
+          i_path     = i_path
+*         I_PATH_FWS_IP       = I_PATH_FWS_IP
+          i_path_fws = 'X'
+*         I_PATH_BKS_IP       = I_PATH_BKS_IP
+*         i_path_bks = 'X' 
+        IMPORTING
+          e_path     = e_path.
+
+      p_file = e_path.
+      CLEAR: e_path, i_path.
+    ENDIF.
+
+    OPEN DATASET p_file FOR OUTPUT IN TEXT MODE ENCODING DEFAULT. "Encoding is required in later systems
+    IF sy-subrc EQ 0.
+      LOOP AT lt_final INTO lv_final.
+        TRANSFER lv_final TO p_file.
+        CLEAR lv_final.
+      ENDLOOP.
+
+    ENDIF.
+    CLOSE DATASET p_file.
+    IF sy-subrc = 0.
+      """'
+
+      CONCATENATE 'Sucessfully downloaded into' p_file INTO lv_string.
+      MESSAGE lv_string TYPE 'S'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " DOWNLOAD_DATA

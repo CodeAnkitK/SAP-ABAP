@@ -1,0 +1,1327 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_VENDOR_SERVICETAX_V2_FNC
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  VALIDATION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM validation .
+  IF p_list = 'X'.
+    IF p_file IS NOT INITIAL AND p_file1 IS NOT INITIAL.
+      MESSAGE 'Please enter either local file path or App file name' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_FILE_F4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_file_f4 .
+  DATA: t_format(30) VALUE ',All files,*.*.'.
+  TYPES :BEGIN OF ty_output2,
+           /bic/stu_id(15),
+           /bic/z_marks1(15),
+           /bic/z_marks2(15),
+           /bic/z_marks3(15),
+         END OF ty_output2.
+  DATA: it_output2 TYPE STANDARD TABLE OF ty_output2,
+        wa_output2 TYPE ty_output2.
+  CALL FUNCTION 'KD_GET_FILENAME_ON_F4'
+    EXPORTING
+      program_name  = syst-repid
+      dynpro_number = syst-dynnr
+      mask          = t_format
+    CHANGING
+      file_name     = p_file
+    EXCEPTIONS
+      mask_too_long = 1
+      OTHERS        = 2.
+  IF sy-subrc <> 0.
+*    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+  CONDENSE p_file.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  ALV_VARIANT_F4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      <--P_P_LAYOUT  text
+*----------------------------------------------------------------------*
+FORM alv_variant_f4  CHANGING p_p_layout.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_data .
+  REFRESH:gt_bsis,gt_bsik.
+
+  IF s_lifnr[] IS NOT INITIAL.
+    SELECT bukrs
+           lifnr
+           augdt
+           augbl
+           gjahr
+           belnr
+           buzei
+           budat
+           bldat
+           blart
+           monat
+           dmbtr
+           wrbtr
+           INTO TABLE gt_bsik
+           FROM bsik CLIENT SPECIFIED
+           WHERE mandt = sy-mandt
+           AND bukrs = p_bukrs
+           AND lifnr IN s_lifnr
+           AND gjahr IN s_gjahr
+           AND budat IN s_date
+           AND blart IN s_blart 
+    AND prctr IN s_prctr.
+
+
+    SELECT bukrs
+       lifnr
+       augdt
+       augbl
+       gjahr
+       belnr
+       buzei
+       budat
+       bldat
+       blart
+       monat
+       dmbtr
+       wrbtr  APPENDING TABLE gt_bsik
+       FROM bsak CLIENT SPECIFIED
+       WHERE mandt = sy-mandt
+       AND bukrs = p_bukrs
+       AND lifnr IN s_lifnr
+       AND gjahr IN s_gjahr
+       AND budat IN s_date
+       AND blart IN s_blart 
+       AND prctr IN s_prctr.
+
+    IF gt_bsik[] IS NOT INITIAL.
+
+      SELECT  bukrs
+             hkont
+             augdt
+             augbl
+             zuonr
+             gjahr
+             belnr
+             buzei
+             budat
+             bldat
+             waers
+             xblnr
+             blart
+             monat
+             bschl
+             shkzg
+             mwskz    
+             dmbtr
+             wrbtr
+             sgtxt
+             kostl
+             vbund
+             projk
+            INTO  TABLE gt_bsis
+           FROM bsis CLIENT SPECIFIED
+            FOR ALL ENTRIES IN gt_bsik
+           WHERE mandt = sy-mandt
+           AND   bukrs = p_bukrs
+           AND   hkont IN s_hkont
+           AND   gjahr IN s_gjahr
+           AND   belnr = gt_bsik-belnr
+           AND   budat IN s_date
+           AND   projk IN s_projk
+           AND blart IN s_blart 
+      AND prctr IN s_prctr.
+
+
+      SELECT bukrs
+             hkont
+             augdt
+             augbl
+             zuonr
+             gjahr
+             belnr
+             buzei
+             budat
+             bldat
+             waers
+             xblnr
+             blart
+             monat
+             bschl
+             shkzg
+             mwskz  
+             dmbtr
+             wrbtr
+             sgtxt
+             kostl
+             vbund
+             projk
+              APPENDING TABLE gt_bsis
+             FROM bsas CLIENT SPECIFIED
+              FOR ALL ENTRIES IN gt_bsik
+                WHERE mandt = sy-mandt
+                AND   bukrs = p_bukrs
+                AND   hkont IN s_hkont
+                AND   gjahr IN s_gjahr
+                AND   belnr = gt_bsik-belnr
+                AND   budat IN s_date
+                AND   projk IN s_projk
+                AND blart IN s_blart 
+      AND prctr IN s_prctr.
+
+      SELECT bukrs
+            belnr
+            gjahr
+            buzei
+            bstat
+            buzid
+            bschl
+            koart
+            shkzg
+            mwskz   
+            dmbtr
+            wrbtr
+            zuonr
+            sgtxt
+            vbund
+            kostl
+            hkont
+            prctr 
+            projk
+            segment 
+            pswsl
+            augbl
+          INTO TABLE gt_bseg_add
+          FROM bseg_add CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_bsik
+
+* Changed order of fields in WHERE clause as per secondary index.
+*          WHERE mandt = sy-mandt
+*              AND   bukrs = p_bukrs
+*              AND   hkont IN s_hkont
+*              AND   gjahr IN s_gjahr
+*              AND   belnr =  gt_bsik-belnr
+*              AND   projk IN s_projk..
+**              AND   valut IN s_date.
+          WHERE mandt = sy-mandt
+              AND   bukrs = p_bukrs
+              AND   belnr =  gt_bsik-belnr
+              AND   gjahr IN s_gjahr
+              AND   hkont IN s_hkont
+              AND prctr IN s_prctr"added by monali on 19.02.2019 Monali as discussed with bhavik 469329
+      AND projk IN s_projk.
+
+
+    ENDIF.
+  ELSE.
+    SELECT bukrs
+             hkont
+             augdt
+             augbl
+             zuonr
+             gjahr
+             belnr
+             buzei
+             budat
+             bldat
+             waers
+             xblnr
+             blart
+             monat
+             bschl
+             shkzg
+             mwskz    "Kavita D. - 09.02.2015 - SRDK918702
+             dmbtr
+             wrbtr
+             sgtxt
+             kostl
+             vbund
+             projk
+             INTO TABLE gt_bsis
+           FROM bsis CLIENT SPECIFIED
+           WHERE mandt = sy-mandt
+           AND   bukrs = p_bukrs
+           AND   hkont IN s_hkont
+           AND   gjahr IN s_gjahr
+           AND   budat IN s_date
+           AND   projk IN s_projk
+           AND blart IN s_blart 
+    AND prctr IN s_prctr."added by monali on 19.02.2019 Monali as discussed with bhavik 469329.
+
+
+    SELECT bukrs
+             hkont
+             augdt
+             augbl
+             zuonr
+             gjahr
+             belnr
+             buzei
+             budat
+             bldat
+             waers
+             xblnr
+             blart
+             monat
+             bschl
+             shkzg
+             mwskz    
+             dmbtr
+             wrbtr
+             sgtxt
+             kostl
+             vbund
+             projk
+               APPENDING  TABLE gt_bsis
+       FROM bsas CLIENT SPECIFIED
+       WHERE mandt = sy-mandt
+       AND   bukrs = p_bukrs
+       AND   hkont IN s_hkont
+       AND   gjahr IN s_gjahr
+       AND   budat IN s_date
+       AND   projk IN s_projk
+       AND blart IN s_blart 
+    AND prctr IN s_prctr.
+
+    SELECT bukrs
+          belnr
+          gjahr
+          buzei
+          bstat
+          buzid
+          bschl
+          koart
+          shkzg
+          mwskz
+          dmbtr
+          wrbtr
+          zuonr 
+          sgtxt
+          vbund
+          kostl
+          hkont
+          prctr 
+          projk
+          segment 
+          pswsl
+          augbl  INTO TABLE gt_bseg_add
+  FROM bseg_add CLIENT SPECIFIED
+  WHERE mandt = sy-mandt
+      AND   bukrs = p_bukrs
+      AND   hkont IN s_hkont
+      AND   gjahr IN s_gjahr
+       AND prctr IN s_prctr
+    AND   projk IN s_projk.
+*        AND   valut in s_date.
+  ENDIF.
+
+
+*  IF p_test EQ c_x.
+*    DELETE gt_bsis     WHERE blart EQ c_cs.
+*    DELETE gt_bsik     WHERE blart EQ c_cs.
+*  ENDIF.
+
+
+  "Fetch GL Description
+  REFRESH gt_bsis_temp.
+  gt_bsis_temp[] = gt_bsis[].
+  SORT gt_bsis_temp BY hkont.
+  DELETE ADJACENT DUPLICATES FROM gt_bsis_temp COMPARING hkont.
+  IF gt_bsis_temp[] IS NOT INITIAL.
+
+*    SELECT * INTO TABLE gt_skat
+*      FROM skat CLIENT SPECIFIED
+*      FOR ALL ENTRIES IN gt_bsis_temp
+*      WHERE mandt = sy-mandt
+*      AND  saknr = gt_bsis_temp-hkont
+*      AND  spras = 'EN'.
+
+    SELECT * INTO TABLE gt_skat
+        FROM skat CLIENT SPECIFIED
+        FOR ALL ENTRIES IN gt_bsis_temp
+        WHERE mandt = sy-mandt
+        AND   spras = c_en
+        AND   ktopl = c_star
+    AND  saknr = gt_bsis_temp-hkont.
+
+
+
+  ENDIF.
+
+  SORT gt_bsik .
+  SORT gt_bsis BY belnr.
+
+  REFRESH gt_bsis_temp.
+  LOOP AT gt_bsis INTO gs_bsis.
+    """"""FETCH Non Po Data
+    IF gs_bsis-blart NE 'WE' AND
+      gs_bsis-blart NE 'YM' AND
+      gs_bsis-blart NE 'YE' AND
+      gs_bsis-blart NE 'YT' AND
+      gs_bsis-blart NE 'YU'.
+
+      gs_inv_data-belnr = gs_bsis-belnr.
+      gs_inv_data-gjahr = gs_bsis-gjahr.
+      gs_inv_data-inv_doc = gs_bsis-belnr.
+      gs_inv_data-inv_yr = gs_bsis-gjahr.
+      gs_inv_data-transtext = 'Non PO'.
+      APPEND gs_inv_data TO gt_inv_data.
+      CLEAR :gs_inv_data.
+    ENDIF.
+
+*    CLEAR : gs_bsis-buzei.
+
+*    gs_bsis-sgtxt,gs_bsis-kostl,
+    IF gs_bsis-shkzg = 'H'.
+      gs_bsis-dmbtr = gs_bsis-dmbtr * -1.
+    ENDIF.
+
+    IF gs_bsis-shkzg = 'H'.
+      gs_bsis-wrbtr = gs_bsis-wrbtr * -1.
+    ENDIF.
+
+    COLLECT gs_bsis INTO gt_bsis_temp.
+    CLEAR gs_bsis-hkont.
+    COLLECT gs_bsis INTO gt_bsis_gl.
+    CLEAR gs_bsis.
+  ENDLOOP.
+
+  IF gt_bsis[] IS NOT INITIAL.
+    SELECT bukrs
+          belnr
+          gjahr
+          blart
+          bldat
+          budat
+          cpudt
+          monat
+          awkey
+          bktxt
+          bstat
+          usnam
+          xblnr
+          hwaer
+          ldgrp
+          stblg
+          stjah
+          tcode
+            INTO CORRESPONDING FIELDS OF TABLE gt_bkpf
+            FROM bkpf CLIENT SPECIFIED
+            FOR ALL ENTRIES IN gt_bsis
+            WHERE mandt = sy-mandt
+            AND   bukrs = p_bukrs
+            AND belnr = gt_bsis-belnr
+            AND gjahr = gt_bsis-gjahr
+            AND blart IN s_blart 
+    AND ldgrp NE '0L'.
+  ENDIF.
+
+
+
+  IF gt_bseg_add[] IS NOT INITIAL.
+*    SELECT bukrs
+*             belnr
+*             gjahr
+*             buzei
+*             mwskz
+*             hkont
+*             txgrp
+*             shkzg
+*             hwbas
+*              fwbas
+*              hwste
+*              fwste INTO TABLE gt_bset
+*     FROM bset CLIENT SPECIFIED
+*     FOR ALL ENTRIES IN  gt_bseg_add
+*     WHERE mandt = sy-mandt
+*     AND belnr = gt_bseg_add-belnr
+*     AND gjahr IN s_gjahr.
+    REFRESH gt_bkpf_1.
+    SELECT bukrs
+          belnr
+          gjahr
+          blart
+          bldat
+          budat
+          cpudt
+          monat
+          awkey
+          bktxt
+          bstat
+          usnam
+          xblnr
+          hwaer
+          ldgrp
+          stblg
+          stjah
+          tcode
+          INTO CORRESPONDING FIELDS OF TABLE gt_bkpf_1 
+           FROM bkpf CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_bseg_add
+           WHERE mandt = sy-mandt
+           AND  bukrs = p_bukrs
+           AND belnr = gt_bseg_add-belnr
+           AND gjahr = gt_bseg_add-gjahr
+           AND  budat IN s_date
+           AND blart IN s_blart
+    AND ldgrp NE '0L'.
+  ENDIF.
+
+
+*  IF p_test EQ c_x.
+*    DELETE gt_bkpf_1 WHERE blart EQ c_cs.
+*  ENDIF.
+
+  SORT gt_bkpf_1 BY belnr gjahr.
+  LOOP AT gt_bseg_add INTO gs_bseg_add.
+    READ TABLE gt_bkpf_1 INTO gs_bkpf WITH KEY  belnr = gs_bseg_add-belnr
+                                                gjahr = gs_bseg_add-gjahr
+                                                BINARY SEARCH.
+    IF sy-subrc = 0.
+      APPEND gs_bkpf TO gt_bkpf.
+    ELSE.
+      DELETE gt_bseg_add WHERE belnr = gs_bseg_add-belnr
+                         AND   gjahr = gs_bseg_add-gjahr.
+    ENDIF.
+    CLEAR :gs_bkpf,gs_bseg_add.
+  ENDLOOP.
+
+
+*  IF p_test EQ c_x.
+*    CLEAR gt_setleaf.
+*    SELECT *
+*       FROM setleaf CLIENT SPECIFIED
+*       INTO TABLE gt_setleaf
+*       WHERE mandt   = sy-mandt
+*       AND   setname = 'Z3CD_TCODE_EXCLUDE'.
+*
+*
+*    IF gt_setleaf IS NOT INITIAL AND gt_bkpf IS NOT INITIAL.
+*      SORT gt_setleaf BY valfrom.
+*      LOOP AT gt_bkpf INTO gs_bkpf WHERE blart EQ c_sa.
+*        CLEAR gv_index.
+*        gv_index = sy-tabix.
+*        CLEAR gs_setleaf.
+*        READ TABLE gt_setleaf INTO gs_setleaf WITH KEY valfrom = gs_bkpf-tcode
+*                                              BINARY SEARCH.
+*        IF sy-subrc EQ 0.
+*          DELETE gt_bkpf INDEX gv_index.
+*          DELETE gt_bsis_temp WHERE bukrs = gs_bkpf-bukrs
+*                              AND   belnr = gs_bkpf-belnr
+*                              AND   gjahr = gs_bkpf-gjahr.
+*
+*          DELETE gt_bsis WHERE bukrs = gs_bkpf-bukrs
+*                         AND   belnr = gs_bkpf-belnr
+*                         AND   gjahr = gs_bkpf-gjahr.
+*
+*          DELETE gt_bseg_add WHERE bukrs = gs_bkpf-bukrs
+*                             AND   belnr = gs_bkpf-belnr
+*                             AND   gjahr = gs_bkpf-gjahr.
+*        ENDIF.
+*        CLEAR gs_bkpf.
+*      ENDLOOP.
+*    ENDIF.
+*  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_MILS_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_mils_data .
+
+  SELECT * INTO TABLE gt_acct
+    FROM zcm_account CLIENT SPECIFIED
+  WHERE mandt = sy-mandt.
+
+  IF gt_bsis[] IS NOT INITIAL.
+    "Fetch milestone data""""""""""""
+    SELECT * INTO TABLE gt_term_mils
+      FROM zcm_dm_term_mils CLIENT SPECIFIED
+      FOR ALL ENTRIES IN gt_bsis
+      WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+      AND prov_doc = gt_bsis-belnr
+*      AND prov_yr IN s_gjahr.        
+    AND prov_yr EQ gt_bsis-gjahr.                          
+    LOOP AT gt_term_mils INTO gs_term_mils.
+      gs_mils-belnr = gs_term_mils-prov_doc.
+      gs_mils-gjahr = gs_term_mils-prov_yr.
+      gs_mils-inv_doc = gs_term_mils-inv_doc.
+      gs_mils-inv_yr = gs_term_mils-inv_yr.
+      gs_mils-transtext = 'TERMINATION MILESTONE'.
+      APPEND gs_mils TO gt_mils.
+
+      APPEND gs_mils TO gt_inv_data.
+
+      CLEAR :gs_term_mils,gs_mils.
+    ENDLOOP.
+
+
+    SELECT * INTO TABLE gt_vc_mils
+      FROM zcm_dm_vc_mils CLIENT SPECIFIED
+      FOR ALL ENTRIES IN  gt_bsis
+      WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+      AND prov_doc = gt_bsis-belnr
+*      AND prov_yr IN s_gjahr.        
+    AND prov_yr EQ gt_bsis-gjahr.                           
+*      AND inv_doc NE space.
+
+    LOOP AT gt_vc_mils INTO gs_vc_mils.
+      gs_mils-belnr = gs_vc_mils-prov_doc.
+      gs_mils-gjahr = gs_vc_mils-prov_yr.
+      gs_mils-inv_doc = gs_vc_mils-inv_doc.
+      gs_mils-inv_yr = gs_vc_mils-inv_yr.
+      gs_mils-transtext = 'MILESTONE PROVISION'.
+      APPEND gs_mils TO gt_mils.
+      APPEND gs_mils TO gt_inv_data.
+      CLEAR:gs_vc_mils, gs_mils.
+    ENDLOOP.
+
+    SELECT * INTO TABLE gt_ar_mils
+      FROM  zcm_dm_ar_mils CLIENT SPECIFIED
+      FOR ALL ENTRIES IN  gt_bsis
+      WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+      AND prov_doc = gt_bsis-belnr
+*      AND prov_yr IN s_gjahr.        
+    AND prov_yr EQ gt_bsis-gjahr.                          
+
+    LOOP AT gt_ar_mils INTO gs_ar_mils.
+      gs_mils-belnr = gs_ar_mils-prov_doc.
+      gs_mils-gjahr = gs_ar_mils-prov_yr.
+      gs_mils-inv_doc = gs_ar_mils-inv_doc.
+      gs_mils-inv_yr = gs_ar_mils-inv_yr.
+      gs_mils-transtext = 'ARTIST PROVISION'.
+      APPEND gs_mils TO gt_mils.
+      APPEND gs_mils TO gt_inv_data.
+      CLEAR:gs_ar_mils, gs_mils.
+    ENDLOOP.
+
+    SELECT * INTO TABLE gt_trp_doc
+      FROM zcm_trp_doc CLIENT SPECIFIED
+      FOR ALL ENTRIES IN  gt_bsis
+      WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+      AND trp_doc = gt_bsis-belnr
+*      AND trp_yr IN s_gjahr.         
+    AND trp_yr EQ gt_bsis-gjahr.                            
+
+    LOOP AT gt_trp_doc INTO gs_trp_doc.
+      gs_mils-belnr = gs_trp_doc-trp_doc.
+      gs_mils-gjahr = gs_trp_doc-trp_yr.
+      gs_mils-inv_doc = gs_trp_doc-trp_inv_doc.
+      gs_mils-inv_yr = gs_trp_doc-trp_inv_yr.
+      gs_mils-transtext = 'TRP PROVISION'.
+      APPEND gs_mils TO gt_mils.
+      APPEND gs_mils TO gt_inv_data.
+      CLEAR:gs_trp_doc, gs_mils.
+    ENDLOOP.
+
+    SELECT * INTO TABLE gt_dolby_doc
+      FROM zcm_dolby_doc CLIENT SPECIFIED
+      FOR ALL ENTRIES IN  gt_bsis
+      WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+      AND dolby_doc = gt_bsis-belnr
+*      AND dolby_yr IN s_gjahr.           
+    AND dolby_yr EQ gt_bsis-gjahr.                          
+
+    LOOP AT gt_dolby_doc INTO gs_dolby_doc.
+      gs_mils-belnr = gs_dolby_doc-dolby_doc.
+      gs_mils-gjahr = gs_dolby_doc-dolby_yr.
+      gs_mils-inv_doc = gs_dolby_doc-dolby_inv_doc.
+      gs_mils-inv_yr = gs_dolby_doc-dolby_inv_yr.
+      gs_mils-transtext = 'DOLBY PROVISION'.
+      APPEND gs_mils TO gt_mils.
+      APPEND gs_mils TO gt_inv_data.
+      CLEAR:gs_dolby_doc, gs_mils.
+    ENDLOOP.
+
+    SELECT * INTO TABLE gt_ldcedi_doc
+       FROM zcm_ldcedi_doc CLIENT SPECIFIED
+       FOR ALL ENTRIES IN  gt_bsis
+       WHERE mandt = sy-mandt
+      AND bukrs EQ gt_bsis-bukrs                            
+       AND ldcedi_doc = gt_bsis-belnr
+*       AND ldcedi_yr IN s_gjahr.           
+    AND ldcedi_yr EQ gt_bsis-gjahr.                         
+
+    LOOP AT gt_ldcedi_doc INTO gs_ldcedi_doc.
+      gs_mils-belnr = gs_ldcedi_doc-ldcedi_doc.
+      gs_mils-gjahr = gs_ldcedi_doc-ldcedi_yr.
+      gs_mils-inv_doc = gs_ldcedi_doc-edi_inv_doc.
+      gs_mils-inv_yr = gs_ldcedi_doc-edi_inv_yr.
+      gs_mils-transtext = 'EDI PROVISION'.
+      APPEND gs_mils TO gt_mils.
+      APPEND gs_mils TO gt_inv_data.
+      CLEAR:gs_ldcedi_doc, gs_mils.
+    ENDLOOP.
+  ENDIF.
+
+
+*SORT gt_bkpf BY belnr gjahr.
+*  IF p_test EQ c_x AND gt_inv_data IS NOT INITIAL.
+*    LOOP AT gt_inv_data INTO gs_inv_data.
+*      CLEAR gv_index.
+*      gv_index = sy-tabix.
+*      CLEAR gs_bkpf.
+*      READ TABLE gt_bkpf INTO gs_bkpf WITH KEY belnr = gs_inv_data-belnr
+*                                               gjahr = gs_inv_data-gjahr.
+*      IF sy-subrc EQ 0.
+*        IF gs_bkpf-blart = c_ym AND gs_inv_data-inv_doc IS NOT INITIAL.
+*          DELETE gt_bkpf INDEX sy-tabix.
+*
+*          DELETE gt_inv_data INDEX gv_index.
+*
+*          DELETE gt_bsis WHERE bukrs = gs_bkpf-bukrs
+*                         AND   belnr = gs_bkpf-belnr
+*                         AND   gjahr = gs_bkpf-gjahr.
+*
+*          DELETE gt_bsis_temp WHERE bukrs = gs_bkpf-bukrs
+*                              AND   belnr = gs_bkpf-belnr
+*                              AND   gjahr = gs_bkpf-gjahr.
+*
+*          DELETE gt_bseg_add WHERE bukrs = gs_bkpf-bukrs
+*                             AND   belnr = gs_bkpf-belnr
+*                             AND   gjahr = gs_bkpf-gjahr.
+*        ENDIF.
+*      ENDIF.
+*      CLEAR gs_inv_data.
+*    ENDLOOP.
+*  ENDIF.
+
+ENDFORM.                    " GET_MILS_DATA
+*&---------------------------------------------------------------------*
+*&      Form  GET_PO_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_po_data .
+  SORT gt_bsis_temp.
+  "logic for PO
+  IF gt_bsis_temp[] IS NOT INITIAL.
+    SELECT bukrs
+            belnr
+            gjahr
+            blart
+            bldat
+            budat
+            cpudt
+            monat
+            awkey
+            bktxt
+            bstat
+            usnam
+            xblnr
+            hwaer
+            ldgrp
+        INTO TABLE gt_bkpf_po_1
+        FROM bkpf CLIENT SPECIFIED
+        FOR ALL ENTRIES IN gt_bsis_temp
+        WHERE mandt = sy-mandt
+        AND   bukrs = p_bukrs
+         AND belnr = gt_bsis_temp-belnr
+         AND gjahr = gt_bsis_temp-gjahr
+    AND blart = 'WE'.
+
+    CLEAR gt_bseg[].
+    SELECT bukrs
+           belnr
+           gjahr
+           buzei
+*             zuonr  
+           ebeln
+           ebelp
+           prctr 
+           segment 
+           xref2
+           xref3
+      FROM bseg CLIENT SPECIFIED
+      INTO TABLE gt_bseg
+      FOR ALL ENTRIES IN gt_bsis_temp
+      WHERE mandt = sy-mandt
+      AND   bukrs = gt_bsis_temp-bukrs
+      AND   belnr = gt_bsis_temp-belnr
+      AND   gjahr = gt_bsis_temp-gjahr
+    AND   buzei = gt_bsis_temp-buzei.
+
+  ENDIF.
+
+  LOOP AT gt_bkpf_po_1 INTO gs_bkpf.
+    MOVE-CORRESPONDING gs_bkpf TO gs_bkpf_po.
+    gs_bkpf_po-mblnr = gs_bkpf_po-awkey+0(10).
+    gs_bkpf_po-mjahr = gs_bkpf_po-awkey+10(4).
+    APPEND gs_bkpf_po TO gt_bkpf_po.
+*    MODIFY gt_bkpf_po FROM gs_bkpf_po TRANSPORTING mblnr mjahr WHERE belnr = gs_bkpf_po-belnr
+*                                      AND gjahr = gs_bkpf_po-gjahr.
+    CLEAR:gs_bkpf_po, gs_bkpf.
+  ENDLOOP.
+
+  IF gt_bkpf_po[] IS NOT INITIAL.
+    SELECT mblnr
+           mjahr
+           lfbja
+           lfbnr
+           lfpos  INTO TABLE gt_mseg
+       FROM mseg CLIENT SPECIFIED
+      FOR ALL ENTRIES IN gt_bkpf_po
+      WHERE mandt = sy-mandt
+      AND  mblnr = gt_bkpf_po-mblnr
+    AND  mjahr = gt_bkpf_po-mjahr.
+  ENDIF.
+
+  DELETE gt_mseg WHERE lfbnr IS INITIAL.
+
+  IF gt_mseg[] IS NOT INITIAL .
+    SELECT belnr
+           gjahr
+           lfbnr
+           lfgja INTO TABLE gt_rseg
+           FROM rseg CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_mseg
+           WHERE mandt = sy-mandt
+           AND  lfbnr = gt_mseg-lfbnr
+    AND  lfgja = gt_mseg-lfbja.
+    IF sy-subrc = 0.
+      LOOP AT gt_rseg INTO gs_rseg.
+        CONCATENATE gs_rseg-belnr gs_rseg-gjahr INTO gs_rseg-awkey.
+        MODIFY gt_rseg FROM gs_rseg TRANSPORTING awkey WHERE belnr = gs_rseg-belnr
+                                                       AND gjahr = gs_rseg-gjahr.
+      ENDLOOP.
+
+      SELECT bukrs
+          belnr
+          gjahr
+          blart
+          bldat
+          budat
+          cpudt
+          monat
+          awkey
+          bktxt
+          bstat
+          usnam
+          xblnr
+          hwaer
+          ldgrp
+           INTO TABLE gt_bkpf_temp
+           FROM bkpf CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_rseg
+           WHERE mandt = sy-mandt
+           AND   bukrs = p_bukrs
+      AND awkey  = gt_rseg-awkey .
+*            AND gjahr = gt_rseg-gjahr.
+      IF sy-subrc = 0.
+        LOOP AT gt_bkpf_temp INTO gs_bkpf.
+*          gs_inv_data-belnr = gs_bsis-belnr.
+*          gs_inv_data-gjahr = gs_bsis-gjahr.
+          gs_inv_data-inv_doc = gs_bkpf-belnr.
+          gs_inv_data-inv_yr = gs_bkpf-gjahr.
+          gs_inv_data-transtext = 'PO'.
+          APPEND gs_inv_data TO gt_inv_data.
+          CLEAR :gs_inv_data,gs_bkpf..
+        ENDLOOP.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_INVOICE_DETAILS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_invoice_details .
+  SORT gt_inv_data.
+  DELETE gt_inv_data WHERE inv_doc IS INITIAL.
+  IF gt_inv_data[] IS NOT INITIAL.
+*    SELECT  bukrs
+*            belnr
+*            gjahr
+*            buzei
+*            mwskz
+*            hkont
+*            txgrp
+*            shkzg
+*             hwbas
+*            fwbas
+*            hwste
+*            fwste   APPENDING TABLE gt_bset
+*          FROM bset CLIENT SPECIFIED
+*          FOR ALL ENTRIES IN gt_inv_data
+*          WHERE mandt = sy-mandt
+*          AND belnr = gt_inv_data-inv_doc
+*          AND gjahr = gt_inv_data-inv_yr.
+
+    SELECT bukrs
+          belnr
+          gjahr
+          blart
+          bldat
+          budat
+          cpudt
+          monat
+          awkey
+          bktxt
+          bstat
+          usnam
+          xblnr
+          hwaer
+          ldgrp INTO TABLE gt_bkpf_inv
+         FROM bkpf CLIENT SPECIFIED
+         FOR ALL ENTRIES IN gt_inv_data
+         WHERE mandt = sy-mandt
+         AND   bukrs = p_bukrs
+         AND belnr = gt_inv_data-inv_doc
+    AND gjahr = gt_inv_data-inv_yr.
+
+    IF s_lifnr[] IS INITIAL.
+      SELECT bukrs
+           lifnr
+           augdt
+           augbl
+           gjahr
+           belnr
+           buzei
+           budat
+           bldat
+           blart
+           monat
+           dmbtr
+           wrbtr  INTO TABLE gt_bsik
+           FROM bsik CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_inv_data
+           WHERE mandt = sy-mandt
+           AND bukrs = p_bukrs
+           AND belnr =  gt_inv_data-inv_doc
+      AND gjahr = gt_inv_data-inv_yr.
+
+
+      SELECT bukrs
+         lifnr
+         augdt
+         augbl
+         gjahr
+         belnr
+         buzei
+         budat
+         bldat
+         blart
+         monat
+         dmbtr
+         wrbtr  APPENDING TABLE gt_bsik
+         FROM bsak CLIENT SPECIFIED
+          FOR ALL ENTRIES IN gt_inv_data
+             WHERE mandt = sy-mandt
+             AND bukrs = p_bukrs
+             AND belnr =  gt_inv_data-inv_doc
+      AND gjahr = gt_inv_data-inv_yr.
+
+      IF gt_bseg_add[] IS NOT INITIAL.
+        SELECT bukrs
+         lifnr
+         augdt
+         augbl
+         gjahr
+         belnr
+         buzei
+         budat
+         bldat
+         blart
+         monat
+         dmbtr
+         wrbtr  APPENDING TABLE gt_bsik
+         FROM bsik CLIENT SPECIFIED
+         FOR ALL ENTRIES IN gt_bseg_add
+         WHERE mandt = sy-mandt
+         AND bukrs = p_bukrs
+         AND belnr =  gt_bseg_add-belnr
+        AND gjahr = gt_bseg_add-gjahr.
+
+
+        SELECT bukrs
+           lifnr
+           augdt
+           augbl
+           gjahr
+           belnr
+           buzei
+           budat
+           bldat
+           blart
+           monat
+           dmbtr
+           wrbtr  APPENDING TABLE gt_bsik
+           FROM bsak CLIENT SPECIFIED
+            FOR ALL ENTRIES IN gt_bseg_add
+               WHERE mandt = sy-mandt
+               AND bukrs = p_bukrs
+               AND belnr =  gt_bseg_add-belnr
+        AND gjahr = gt_bseg_add-gjahr.
+      ENDIF.
+    ENDIF.
+    "fetching withholding tax data
+    SELECT  bukrs
+        belnr
+        gjahr
+        witht
+        wt_withcd
+        wt_qsshh
+        wt_qbshh
+        qsatz
+        buzei INTO TABLE gt_with_item
+        FROM with_item CLIENT SPECIFIED
+        FOR ALL ENTRIES IN gt_inv_data
+        WHERE mandt = sy-mandt
+        AND bukrs = p_bukrs
+        AND belnr = gt_inv_data-inv_doc
+    AND gjahr = gt_inv_data-inv_yr.
+  ENDIF.
+
+  IF gt_bseg_add[] IS NOT INITIAL.
+    SELECT  bukrs
+        belnr
+        gjahr
+        witht
+        wt_withcd
+        wt_qsshh   
+        wt_qbshh
+        qsatz
+        buzei APPENDING TABLE gt_with_item 
+        FROM with_item CLIENT SPECIFIED
+        FOR ALL ENTRIES IN gt_bseg_add
+        WHERE mandt = sy-mandt
+        AND bukrs = p_bukrs
+        AND belnr = gt_bseg_add-belnr
+    AND gjahr = gt_bseg_add-gjahr.
+  ENDIF.
+
+  CLEAR:gt_with_item1[],gt_with_item2[],gt_t059u[],gt_t059zt[].
+  gt_with_item1[] = gt_with_item[].
+  gt_with_item2[] = gt_with_item[].
+
+  IF NOT gt_with_item1[] IS INITIAL.
+
+    SORT gt_with_item1 BY witht.
+    DELETE ADJACENT DUPLICATES FROM gt_with_item1 COMPARING witht.
+
+    SELECT *
+      FROM t059u CLIENT SPECIFIED
+      INTO TABLE gt_t059u
+      FOR ALL ENTRIES IN gt_with_item1
+      WHERE mandt = sy-mandt
+      AND   spras = c_en
+      AND   land1 = c_in
+    AND   witht = gt_with_item1-witht.
+
+  ENDIF.
+
+  IF NOT gt_with_item2[] IS INITIAL.
+
+    SORT gt_with_item2 BY witht wt_withcd.
+    DELETE ADJACENT DUPLICATES FROM gt_with_item1 COMPARING witht wt_withcd.
+
+    SELECT *
+      FROM t059zt CLIENT SPECIFIED
+      INTO TABLE gt_t059zt
+      FOR ALL ENTRIES IN gt_with_item2
+      WHERE mandt     = sy-mandt
+      AND   spras     = c_en
+      AND   land1     = c_in
+      AND   witht     = gt_with_item2-witht
+    AND   wt_withcd = gt_with_item2-wt_withcd.
+
+  ENDIF.
+
+*  LOOP AT gt_bset INTO gs_bset.
+*    CLEAR :gs_bset-buzei, gs_bset-hkont.
+*    IF gs_bset-shkzg = 'H'.
+*      gs_bset-hwste = gs_bset-hwste * -1.
+*    ENDIF.
+*    COLLECT gs_bset INTO gt_bset_temp.
+*    CLEAR gs_bset.
+*  ENDLOOP.
+
+  """""
+  "STCD3 field Added 
+  IF gt_bsik[] IS NOT INITIAL.
+    SELECT lifnr name1 adrnr stcd3 land1 INTO TABLE gt_lfa1
+      FROM lfa1 CLIENT SPECIFIED
+      FOR ALL ENTRIES IN gt_bsik
+      WHERE mandt = sy-mandt
+    AND lifnr = gt_bsik-lifnr.
+  ENDIF.
+
+  IF gt_lfa1[] IS NOT INITIAL.
+    SELECT addrnumber
+           name1
+           city1  INTO TABLE gt_adrc
+           FROM adrc CLIENT SPECIFIED
+           FOR ALL ENTRIES IN gt_lfa1
+           WHERE client = sy-mandt
+    AND  addrnumber = gt_lfa1-adrnr.
+
+    SELECT * INTO TABLE gt_j_1imovend
+      FROM j_1imovend CLIENT SPECIFIED
+      FOR ALL ENTRIES IN gt_lfa1
+      WHERE mandt = sy-mandt
+    AND lifnr = gt_lfa1-lifnr.
+  ENDIF.
+ENDFORM.                    " GET_INVOICE_DETAILS
+*&---------------------------------------------------------------------*
+*&      Form  GET_DEALMEMO_INFO
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_dealmemo_info .
+*----------------------------------------------------------------------*
+* SOC: Deal Memo Additions "Added by Ankit
+*----------------------------------------------------------------------*
+
+  TYPES: BEGIN OF lty_dmlist,
+           doc_no   TYPE zcm_dm_epi-doc_no,
+           prog_id1 TYPE zcm_dm_epi-prog_id1,
+           anln1    TYPE zcm_dm_epi-anln1,
+           anln2    TYPE zcm_dm_epi-anln2,
+           epi_id   TYPE zcm_dm_epi-epi_id,
+           epiprog  TYPE zcm_dm_epi-epiprog,
+           pspnr    TYPE zcm_dm_epi-pspnr,
+           bukrs    TYPE bseg-bukrs,
+           belnr    TYPE bseg-belnr,
+           gjahr    TYPE bseg-gjahr,
+         END OF lty_dmlist.
+
+  DATA: lt_dmlist TYPE STANDARD TABLE OF lty_dmlist.
+  DATA: lw_dmlist TYPE lty_dmlist.
+  DATA: lt_bseg LIKE gt_bseg.
+  DATA: lv_anln1 TYPE anla-anln1.
+  DATA: lv_anln2 TYPE anla-anln2.
+  DATA: lv_prog_nature TYPE zcm_doch-prog_nature.
+  DATA: ls_idd07v TYPE dd07v.
+
+  PERFORM get_prog_nature.
+
+  IF gt_bsis IS NOT INITIAL.
+    LOOP AT gt_bsis ASSIGNING FIELD-SYMBOL(<gs_bsis>).
+      IF <gs_bsis>-projk IS NOT INITIAL.
+        SELECT pspnr
+              FROM prps
+          APPENDING TABLE @DATA(lt_prps)
+          WHERE pspnr = @<gs_bsis>-projk.
+      ENDIF.
+      IF lt_prps IS NOT INITIAL.
+        DELETE ADJACENT DUPLICATES FROM lt_prps COMPARING ALL FIELDS.
+      ENDIF.
+    ENDLOOP.
+
+    IF lt_prps IS NOT INITIAL.
+      SELECT doc_no,
+             prog_id1,
+             epi_id,
+             category,
+             epi_type,
+             prog_id,
+             epi_no,
+             epi_desc,
+             pspnr,
+             anln1,
+             anln2
+        FROM zcm_dm_epi
+        INTO TABLE @DATA(lt_dealmemo1)
+        FOR ALL ENTRIES IN @lt_prps
+        WHERE pspnr = @lt_prps-pspnr.
+    ENDIF.
+  ENDIF.
+
+  lt_bseg = gt_bseg.
+  DELETE lt_bseg WHERE xref2 IS INITIAL
+                   AND xref3 IS INITIAL.
+
+  IF lt_bseg IS NOT INITIAL.
+    LOOP AT lt_bseg ASSIGNING FIELD-SYMBOL(<fs_bseg>).
+
+      IF <fs_bseg>-xref3 IS NOT INITIAL.
+        SPLIT <fs_bseg>-xref3 AT '-' INTO lv_anln1 lv_anln2 DATA(lv_prog_id1).
+        CONDENSE: lv_anln1, lv_anln2, lv_prog_id1.
+      ENDIF.
+
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = lv_anln1
+        IMPORTING
+          output = lv_anln1.
+
+      CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+        EXPORTING
+          input  = lv_anln2
+        IMPORTING
+          output = lv_anln2.
+
+      SELECT SINGLE doc_no, epiprog, epi_id, pspnr
+        FROM zcm_dm_epi
+        INTO (@DATA(lv_doc_no),
+              @DATA(lv_epiprog),
+              @DATA(lv_epi_id),
+              @DATA(lv_pspnr))
+        WHERE doc_no = @<fs_bseg>-xref2
+          AND prog_id1 = @lv_prog_id1
+          AND anln1 = @lv_anln1
+          AND anln2 = @lv_anln2.
+
+      IF sy-subrc EQ 0.
+        lw_dmlist-doc_no   = lv_doc_no.
+        lw_dmlist-prog_id1 = lv_prog_id1.
+        lw_dmlist-anln1    = lv_anln1.
+        lw_dmlist-anln2    = lv_anln2.
+        lw_dmlist-epiprog  = lv_anln2.
+        lw_dmlist-epi_id   = lv_epi_id.
+        lw_dmlist-pspnr    = lv_pspnr.
+        lw_dmlist-bukrs    = <fs_bseg>-bukrs.
+        lw_dmlist-belnr    = <fs_bseg>-belnr.
+        lw_dmlist-gjahr    = <fs_bseg>-gjahr.
+
+        APPEND lw_dmlist TO lt_dmlist.
+        FREE: lw_dmlist.
+      ENDIF.
+    ENDLOOP.
+    DELETE ADJACENT DUPLICATES FROM lt_dmlist COMPARING ALL FIELDS.
+  ENDIF.
+
+  IF lt_prps IS NOT INITIAL.
+    LOOP AT lt_prps ASSIGNING FIELD-SYMBOL(<fs_prps>).
+      gw_dealmemo-pspnr  = <fs_prps>-pspnr.
+      SELECT SINGLE doc_no
+                    prog_id1
+                    epi_id
+                    anln1
+                    anln2
+                    epiprog
+        INTO ( gw_dealmemo-doc_no,
+               gw_dealmemo-prog_id1,
+               gw_dealmemo-epi_id,
+               gw_dealmemo-anln1,
+               gw_dealmemo-anln2,
+               gw_dealmemo-epiprog )
+        FROM zcm_dm_epi
+        WHERE pspnr = <fs_prps>-pspnr.
+
+      IF sy-subrc EQ 0.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+          EXPORTING
+            input  = gw_dealmemo-anln1
+          IMPORTING
+            output = gw_dealmemo-anln1.
+
+
+        SELECT SINGLE txt50 FROM anla INTO gw_dealmemo-txt50 WHERE anln1 = gw_dealmemo-anln1
+                                                               AND anln2 = gw_dealmemo-anln2.
+        SELECT SINGLE owner_chnl
+                      prog_nature
+                                 FROM zcm_doch
+                                 INTO ( gw_dealmemo-owner_chnl, lv_prog_nature )
+                                 WHERE doc_no = gw_dealmemo-doc_no.
+
+        READ TABLE idd07v INTO ls_idd07v WITH KEY domvalue_l = lv_prog_nature.
+        IF sy-subrc EQ 0.
+          gw_dealmemo-prog_nature = ls_idd07v-ddtext.
+        ENDIF.
+
+        APPEND gw_dealmemo TO gt_dealmemo.
+        FREE: gw_dealmemo.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+  IF lt_dmlist IS NOT INITIAL.
+    LOOP AT lt_dmlist ASSIGNING FIELD-SYMBOL(<fs_dmlist>).
+      gw_dealmemo-doc_no  = <fs_dmlist>-doc_no.
+      gw_dealmemo-prog_id1  = <fs_dmlist>-prog_id1.
+      gw_dealmemo-epi_id  = <fs_dmlist>-epi_id.
+      gw_dealmemo-anln1  = <fs_dmlist>-anln1.
+      gw_dealmemo-anln2  = <fs_dmlist>-anln2.
+      gw_dealmemo-pspnr  = <fs_dmlist>-pspnr.
+      gw_dealmemo-bukrs  = <fs_dmlist>-bukrs.
+      gw_dealmemo-belnr  = <fs_dmlist>-belnr.
+      gw_dealmemo-gjahr  = <fs_dmlist>-gjahr.
+
+      IF sy-subrc EQ 0.
+        CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+          EXPORTING
+            input  = gw_dealmemo-anln1
+          IMPORTING
+            output = gw_dealmemo-anln1.
+
+        SELECT SINGLE txt50 FROM anla INTO gw_dealmemo-txt50 WHERE anln1 = gw_dealmemo-anln1
+                                                               AND anln2 = gw_dealmemo-anln2.
+        SELECT SINGLE owner_chnl prog_nature
+                                 FROM zcm_doch
+                                 INTO (gw_dealmemo-owner_chnl, lv_prog_nature)
+                                 WHERE doc_no = gw_dealmemo-doc_no.
+
+        READ TABLE idd07v INTO ls_idd07v WITH KEY domvalue_l = lv_prog_nature.
+        IF sy-subrc EQ 0.
+          gw_dealmemo-prog_nature = ls_idd07v-ddtext.
+        ENDIF.
+
+        APPEND gw_dealmemo TO gt_dealmemo.
+        FREE: gw_dealmemo.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+*----------------------------------------------------------------------*
+* EOC: Deal Memo Additions "Added by Ankit
+*----------------------------------------------------------------------*
+ENDFORM.
+
+FORM get_prog_nature.
+  CALL FUNCTION 'DD_DOMVALUES_GET'
+    EXPORTING
+      domname        = 'ZPROG_NAT'   "<-- Your Domain Here
+      text           = 'X'
+      langu          = sy-langu
+    TABLES
+      dd07v_tab      = idd07v
+    EXCEPTIONS
+      wrong_textflag = 1
+      OTHERS         = 2.
+ENDFORM.

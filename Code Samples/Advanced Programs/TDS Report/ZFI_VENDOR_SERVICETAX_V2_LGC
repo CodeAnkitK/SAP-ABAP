@@ -1,0 +1,860 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_VENDOR_SERVICETAX_V2_LGC
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM process_data .
+  TYPES: BEGIN OF ty_bkpf1,
+           bukrs TYPE bkpf-bukrs,
+           belnr TYPE bkpf-belnr,
+           gjahr TYPE bkpf-gjahr,
+           kursf TYPE bkpf-kursf,
+         END OF ty_bkpf1.
+
+  DATA: lt_bkpf TYPE TABLE OF ty_bkpf1,
+        ls_bkpf TYPE ty_bkpf1.
+  DATA: lv_buzei      TYPE bseg-buzei,
+        lv_exch_belnr TYPE bkpf-kursf,
+        lv_exch_inv   TYPE bkpf-kursf.
+
+
+  DATA : ls_t059u  TYPE t059u,
+         ls_t059zt TYPE t059zt,
+         ls_bseg   TYPE ty_bseg,
+         ls_mils   TYPE ty_mils.
+
+  SORT gt_bsis_temp BY belnr gjahr.
+  SORT gt_bseg BY bukrs belnr gjahr buzei.    
+  SORT gt_bkpf BY belnr gjahr.
+  SORT gt_mils BY belnr gjahr transtext.
+  SORT gt_bsik BY belnr gjahr.
+  SORT gt_skat BY saknr.
+  SORT gt_bkpf_inv BY belnr gjahr.
+  SORT gt_bkpf_po BY belnr gjahr.
+  SORT gt_mseg BY mblnr mjahr.
+  SORT gt_rseg BY lfbnr lfgja.
+  SORT gt_bkpf_temp BY awkey.
+  SORT gt_j_1imovend BY lifnr.
+  SORT gt_adrc BY addrnumber.
+  SORT gt_acct BY dr_account.
+  SORT gt_lfa1 BY lifnr.
+
+  LOOP AT gt_bsis_temp INTO gs_bsis.
+    CLEAR : gs_acct,gs_vc_mils,gs_lfa1,gs_adrc,gs_bset,gs_bsik.
+
+    CLEAR gs_bkpf.
+    READ TABLE gt_bkpf INTO gs_bkpf WITH KEY belnr = gs_bsis-belnr
+                                             gjahr = gs_bsis-gjahr
+                                             BINARY SEARCH.
+    IF sy-subrc = 0.
+      CLEAR gs_skat.
+      READ TABLE gt_skat INTO gs_skat WITH KEY saknr = gs_bsis-hkont
+                                               BINARY SEARCH.
+      IF sy-subrc = 0.
+        gs_data-txt20  = gs_skat-txt20.
+      ENDIF.
+      gs_data-belnr = gs_bsis-belnr.
+      gs_data-xblnr = gs_bsis-xblnr.
+      gs_data-bukrs = gs_bsis-bukrs.
+
+      gs_data-sgtxt = gs_bsis-sgtxt.
+      gs_data-kostl  = gs_bsis-kostl.
+      gs_data-projk  = gs_bsis-projk.
+      gs_data-vbund = gs_bsis-vbund.
+      gs_data-budat = gs_bsis-budat.
+      gs_data-bldat = gs_bsis-bldat.
+      gs_data-waers = gs_bsis-waers.
+      gs_data-wrbtr = gs_bsis-wrbtr.
+      gs_data-blart = gs_bsis-blart.
+      gs_data-buzei = gs_bsis-buzei.
+      gs_data-zuonr = gs_bsis-zuonr.
+      gs_data-mwskz = gs_bsis-mwskz.
+      gs_data-cpudt = gs_bkpf-cpudt.
+      gs_data-bktxt = gs_bkpf-bktxt.
+
+      gs_data-ldgrp = gs_bkpf-ldgrp.
+      gs_data-usnam = gs_bkpf-usnam.
+
+      gs_data-stblg = gs_bkpf-stblg.  
+      gs_data-stjah = gs_bkpf-stjah.   
+      "soc by monali on 14.2.19 as discussed with bhavik 469329
+      gs_data-gjahr = gs_bsis-gjahr.
+      IF gs_bkpf-blart EQ 'SB'.
+        gs_data-rev_date =  gs_bkpf-budat.
+      ENDIF.
+
+      CLEAR ls_bseg.
+      READ TABLE gt_bseg INTO ls_bseg WITH KEY bukrs = gs_bsis-bukrs
+                                               belnr = gs_bsis-belnr
+                                               gjahr = gs_bsis-gjahr
+                                               buzei = gs_bsis-buzei
+                                      BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        gs_data-xref2 = ls_bseg-xref2.
+        gs_data-xref3 = ls_bseg-xref3.
+        gs_data-prctr = ls_bseg-prctr.
+        gs_data-segment = ls_bseg-segment. 
+*      gs_data-zuonr = ls_bseg-zuonr.
+      ENDIF.
+      "eoc by monali on 14.2.19 as discussed with bhavik 469329
+      IF gs_bsis-blart = 'YM' OR gs_bsis-blart = 'YE' OR gs_bsis-blart = 'YT' OR gs_bsis-blart = 'YU' . "Perform Deal Memo
+        READ TABLE gt_acct INTO gs_acct WITH KEY dr_account = gs_bsis-hkont.
+        IF sy-subrc NE 0.
+          READ TABLE gt_acct INTO gs_acct WITH KEY dr_account1 = gs_bsis-hkont.
+        ENDIF.
+
+        IF sy-subrc = 0 .
+*        IF gs_acct-transtext = 'MILESTONE PROVISION'.
+          CLEAR gs_mils.
+          READ TABLE  gt_mils INTO gs_mils WITH KEY belnr = gs_bsis-belnr
+                                                    gjahr = gs_bsis-gjahr
+                                                    transtext = gs_acct-transtext
+                                                    BINARY SEARCH.
+          IF sy-subrc = 0.
+            READ TABLE  gt_bsik INTO gs_bsik WITH KEY belnr = gs_mils-inv_doc
+                                                       gjahr = gs_mils-inv_yr
+                                                       BINARY SEARCH.
+
+            IF sy-subrc = 0.
+              gs_data-lifnr = gs_bsik-lifnr.
+              gs_data-augbl = gs_bsik-augbl.
+              gs_data-augdt = gs_bsik-augdt.
+
+              READ TABLE gt_j_1imovend INTO gs_j_1imovend WITH KEY lifnr = gs_bsik-lifnr
+                                                          BINARY SEARCH.
+              gs_data-j_1ipanno = gs_j_1imovend-j_1ipanno.
+              READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_bsik-lifnr
+                                                       BINARY SEARCH.
+              IF sy-subrc = 0.
+                gs_data-name1 = gs_lfa1-name1.
+                gs_data-stcd3 = gs_lfa1-stcd3. "Added by Ankit 0n 01.10.2024 for CR#
+                gs_data-land1 = gs_lfa1-land1. "Added by Ankit 0n 01.10.2024 for CR#
+
+                READ TABLE gt_adrc INTO gs_adrc WITH KEY addrnumber = gs_lfa1-adrnr
+                                                         BINARY SEARCH.
+                IF sy-subrc = 0.
+                  CONCATENATE gs_adrc-name1 gs_adrc-city1 INTO gs_data-address SEPARATED BY space.
+
+                ENDIF.
+              ENDIF.
+            ENDIF.
+            gs_data-inv = gs_mils-inv_doc.
+            gs_data-inv_gjahr = gs_mils-inv_yr.            
+    
+            CLEAR gs_bkpf.
+            READ TABLE gt_bkpf_inv INTO gs_bkpf WITH KEY belnr = gs_mils-inv_doc
+                                                     gjahr = gs_mils-inv_yr
+                                                     BINARY SEARCH.
+            IF sy-subrc = 0.
+              gs_data-inv_date = gs_bkpf-budat.
+            ENDIF.
+          ENDIF.
+          gs_data-inv_type = gs_acct-transtext.
+          gs_data-dmbtr = gs_bsis-dmbtr.
+          gs_data-gjahr = gs_bsis-gjahr. 
+          gs_data-budat = gs_bsis-budat.
+          gs_data-hkont = gs_bsis-hkont.
+
+
+*          IF p_test EQ c_x AND gs_bsis-blart EQ c_ym.
+*            CLEAR ls_mils.
+*            READ TABLE  gt_mils INTO ls_mils WITH KEY belnr = gs_bsis-belnr
+*                                                      gjahr = gs_bsis-gjahr.
+*            IF sy-subrc EQ 0.
+*              IF ls_mils-inv_doc IS NOT INITIAL AND gs_data-inv IS INITIAL.
+*                CONTINUE.
+*              ENDIF.
+*            ENDIF.
+*          ENDIF.
+
+          APPEND gs_data TO gt_data.
+          CLEAR : gs_data, gs_bsis.
+        ENDIF.
+
+      ELSEIF gs_bsis-blart = 'WE'. "Perform PO
+        gs_data-inv_type = 'PO'.
+
+
+        CLEAR ls_bseg.
+        READ TABLE gt_bseg INTO ls_bseg WITH KEY bukrs = gs_bsis-bukrs
+                                                 belnr = gs_bsis-belnr
+                                                 gjahr = gs_bsis-gjahr
+                                                 buzei = gs_bsis-buzei
+                                        BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          gs_data-ebeln = ls_bseg-ebeln.
+        ENDIF.
+
+        CLEAR gs_bkpf_po.
+        READ TABLE gt_bkpf_po INTO gs_bkpf_po WITH KEY belnr = gs_bsis-belnr
+                                                       gjahr = gs_bsis-gjahr
+                                                       BINARY SEARCH.
+
+        IF sy-subrc = 0.
+
+          READ TABLE gt_mseg INTO gs_mseg WITH KEY mblnr = gs_bkpf_po-mblnr
+                                                   mjahr = gs_bkpf_po-mjahr
+                                                   BINARY SEARCH.
+          IF sy-subrc = 0.
+            READ TABLE gt_rseg INTO gs_rseg WITH KEY lfbnr = gs_mseg-lfbnr
+                                                     lfgja = gs_mseg-lfbja
+                                                     BINARY SEARCH.
+            IF sy-subrc = 0.
+              READ TABLE gt_bkpf_temp INTO gs_bkpf WITH KEY awkey  = gs_rseg-awkey
+                                                            BINARY SEARCH .
+
+              IF sy-subrc = 0.
+                READ TABLE  gt_bsik INTO gs_bsik WITH KEY belnr =  gs_bkpf-belnr
+                                                         gjahr =  gs_bkpf-gjahr
+                                                         BINARY SEARCH.
+
+                IF sy-subrc = 0.
+                  gs_data-lifnr = gs_bsik-lifnr.
+                  gs_data-augbl = gs_bsik-augbl.
+                  gs_data-augdt = gs_bsik-augdt.
+
+                  READ TABLE gt_j_1imovend INTO gs_j_1imovend WITH KEY lifnr = gs_bsik-lifnr
+                                                              BINARY SEARCH.
+                  gs_data-j_1ipanno = gs_j_1imovend-j_1ipanno.
+                  READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_bsik-lifnr
+                                                           BINARY SEARCH.
+                  IF sy-subrc = 0.
+                    gs_data-name1 = gs_lfa1-name1.
+                    gs_data-stcd3 = gs_lfa1-stcd3.
+                    gs_data-land1 = gs_lfa1-land1.
+					
+                    READ TABLE gt_adrc INTO gs_adrc WITH KEY addrnumber = gs_lfa1-adrnr
+                                                             BINARY SEARCH.
+                    IF sy-subrc = 0.
+                      CONCATENATE gs_adrc-name1 gs_adrc-city1 INTO gs_data-address SEPARATED BY space.
+
+                    ENDIF.
+                  ENDIF.
+                ENDIF.
+                gs_data-inv = gs_bkpf-belnr.
+                gs_data-inv_gjahr = gs_bkpf-gjahr.          
+                gs_data-inv_date = gs_bkpf-budat.
+                gs_data-bktxt = gs_bkpf-bktxt.
+                gs_data-ldgrp = gs_bkpf-ldgrp.
+                gs_data-usnam = gs_bkpf-usnam.
+                gs_data-hwaer = gs_bkpf-hwaer.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+          gs_data-dmbtr = gs_bsis-dmbtr.
+          gs_data-budat = gs_bsis-budat.
+          gs_data-hkont = gs_bsis-hkont.
+          gs_data-gjahr = gs_bsis-gjahr. 
+
+          APPEND gs_data TO gt_data.
+          CLEAR : gs_data, gs_bsis.
+        ENDIF.
+
+*      ENDIF.
+      ELSE.
+        gs_data-inv_type = 'Non PO'.
+        READ TABLE  gt_bsik INTO gs_bsik WITH KEY belnr = gs_bsis-belnr
+                                                  gjahr = gs_bsis-gjahr
+                                                  BINARY SEARCH.
+
+        IF sy-subrc = 0.
+          gs_data-lifnr = gs_bsik-lifnr.
+          READ TABLE gt_j_1imovend INTO gs_j_1imovend WITH KEY lifnr = gs_bsik-lifnr
+                                                        BINARY SEARCH.
+          gs_data-j_1ipanno = gs_j_1imovend-j_1ipanno.
+          READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_bsik-lifnr
+                                              BINARY SEARCH.
+          IF sy-subrc = 0.
+            gs_data-name1 = gs_lfa1-name1.
+            gs_data-stcd3 = gs_lfa1-stcd3. 
+            gs_data-land1 = gs_lfa1-land1.
+            gs_data-augbl = gs_bsik-augbl.
+            gs_data-augdt = gs_bsik-augdt.
+
+            READ TABLE gt_adrc INTO gs_adrc WITH KEY addrnumber = gs_lfa1-adrnr
+                                                     BINARY SEARCH.
+            IF sy-subrc = 0.
+              CONCATENATE gs_adrc-name1 gs_adrc-city1 INTO gs_data-address SEPARATED BY space.
+
+            ENDIF.
+          ENDIF.
+        ENDIF.
+        CLEAR gs_bkpf.
+        READ TABLE gt_bkpf INTO gs_bkpf WITH KEY belnr = gs_bsis-belnr
+                                                 gjahr = gs_bsis-gjahr
+                                                 BINARY SEARCH.
+        gs_data-bktxt = gs_bkpf-bktxt.
+        gs_data-ldgrp = gs_bkpf-ldgrp.
+        gs_data-usnam = gs_bkpf-usnam.
+        gs_data-cpudt = gs_bkpf-cpudt.
+        gs_data-hwaer = gs_bkpf-hwaer.
+*      IF sy-subrc = 0.
+        gs_data-dmbtr = gs_bsis-dmbtr.
+        gs_data-budat = gs_bsis-budat.
+        gs_data-hkont = gs_bsis-hkont.
+        gs_data-gjahr = gs_bsis-gjahr.  
+        gs_data-inv = gs_bsis-belnr.
+        gs_data-inv_date = gs_bkpf-budat.
+        gs_data-inv_gjahr = gs_bkpf-gjahr.                  "SRDK918874
+
+
+
+
+        APPEND gs_data TO gt_data.
+        CLEAR : gs_data, gs_bsis.
+
+
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+  LOOP AT gt_bseg_add INTO gs_bseg_add.
+    CLEAR gs_bkpf.
+    READ TABLE gt_bkpf INTO gs_bkpf WITH KEY belnr = gs_bseg_add-belnr
+                                             gjahr = gs_bseg_add-gjahr
+                                             BINARY SEARCH.
+    IF sy-subrc = 0.
+      gs_data-inv_type = 'Non PO'.
+      CLEAR gs_skat.
+      READ TABLE gt_skat INTO gs_skat WITH KEY saknr =  gs_bseg_add-hkont
+                                                BINARY SEARCH.
+      IF sy-subrc = 0.
+        gs_data-txt20  = gs_skat-txt20.
+      ENDIF.
+
+      IF gs_bseg_add-shkzg = 'H'.
+        gs_bseg_add-wrbtr = gs_bseg_add-wrbtr * -1.
+      ENDIF.
+
+      gs_data-belnr = gs_bseg_add-belnr.
+*    gs_data-xblnr = gs_bseg_add-xblnr.
+      gs_data-bukrs = gs_bseg_add-bukrs.
+      gs_data-augbl = gs_bseg_add-augbl.
+      gs_data-sgtxt = gs_bseg_add-sgtxt.
+      gs_data-kostl  = gs_bseg_add-kostl.
+      gs_data-projk  = gs_bseg_add-projk.
+      gs_data-vbund = gs_bseg_add-vbund.
+*    gs_data-budat = gs_bseg_add-budat.
+*    gs_data-bldat = gs_bseg_add-bldat.
+      gs_data-waers = gs_bseg_add-pswsl.
+      gs_data-wrbtr = gs_bseg_add-wrbtr.
+*      gs_data-buzei = gs_bsis-buzei.   
+      gs_data-buzei = gs_bseg_add-buzei. 
+
+      IF gs_bkpf-blart EQ 'SB'.
+        gs_data-rev_date =  gs_bkpf-budat.
+
+      ENDIF.
+      gs_data-prctr = gs_bseg_add-prctr.
+      gs_data-zuonr = gs_bseg_add-zuonr.
+      gs_data-segment = gs_bseg_add-segment.
+
+      CLEAR: gs_bsik, gs_j_1imovend,gs_adrc,gs_lfa1.
+      READ TABLE  gt_bsik INTO gs_bsik WITH KEY belnr = gs_bseg_add-belnr
+                                                       gjahr = gs_bseg_add-gjahr
+                                                       BINARY SEARCH.
+
+      IF sy-subrc = 0.
+        gs_data-lifnr = gs_bsik-lifnr.
+        gs_data-augbl = gs_bsik-augbl.
+        gs_data-augdt = gs_bsik-augdt.
+
+        READ TABLE gt_j_1imovend INTO gs_j_1imovend WITH KEY lifnr = gs_bsik-lifnr
+                                                     BINARY SEARCH.
+        gs_data-j_1ipanno = gs_j_1imovend-j_1ipanno.
+        READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_bsik-lifnr
+                                                 BINARY SEARCH.
+        IF sy-subrc = 0.
+          gs_data-name1 = gs_lfa1-name1.
+          gs_data-stcd3 = gs_lfa1-stcd3. 
+          gs_data-land1 = gs_lfa1-land1. 
+
+          READ TABLE gt_adrc INTO gs_adrc WITH KEY addrnumber = gs_lfa1-adrnr
+                                                   BINARY SEARCH.
+          IF sy-subrc = 0.
+            CONCATENATE gs_adrc-name1 gs_adrc-city1 INTO gs_data-address SEPARATED BY space.
+
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+* Begin of Changes - Kavita D. - 09.02.2015 - SRDK918702
+      gs_data-mwskz = gs_bseg_add-mwskz.
+* End of Changes - Kavita D. - 09.02.2015 - SRDK918702
+
+      gs_data-budat = gs_bkpf-budat.
+      gs_data-bldat = gs_bkpf-bldat.
+      gs_data-xblnr = gs_bkpf-xblnr.
+      gs_data-cpudt = gs_bkpf-cpudt.
+      gs_data-bktxt = gs_bkpf-bktxt.
+      gs_data-ldgrp = gs_bkpf-ldgrp.
+      gs_data-usnam = gs_bkpf-usnam.
+      gs_data-cpudt = gs_bkpf-cpudt.
+      gs_data-hwaer = gs_bkpf-hwaer.
+      gs_data-blart = gs_bkpf-blart.
+      gs_data-stblg = gs_bkpf-stblg.  
+      gs_data-stjah = gs_bkpf-stjah.  
+
+      IF gs_bseg_add-shkzg = 'H'.
+        gs_bseg_add-dmbtr = gs_bseg_add-dmbtr * -1.
+      ENDIF.
+
+      gs_data-dmbtr = gs_bseg_add-dmbtr.
+      gs_data-hkont = gs_bseg_add-hkont.
+      gs_data-inv = gs_bseg_add-belnr.
+      gs_data-inv_gjahr = gs_bseg_add-gjahr.              
+      gs_data-gjahr = gs_bseg_add-gjahr.
+      gs_data-inv_date = gs_bkpf-budat.
+
+      APPEND gs_data TO gt_data.
+      CLEAR : gs_data, gs_bsis.
+    ENDIF.
+  ENDLOOP.
+
+
+  REFRESH : gt_bsis_doc[]."gt_bsis_gl1[],
+*  gt_bsis_gl1[] = gt_bsis_gl[].
+*  DELETE ADJACENT DUPLICATES FROM gt_bsis_gl COMPARING bukrs gjahr belnr.
+
+  IF NOT gt_data IS INITIAL.
+
+    SELECT bukrs
+           hkont
+           augdt
+           augbl
+           zuonr
+           gjahr
+           belnr
+           buzei
+           budat
+           bldat
+           waers
+           xblnr
+           blart
+           monat
+           bschl
+           shkzg
+           mwskz  
+           dmbtr
+           wrbtr
+           sgtxt
+           kostl
+           vbund
+           projk
+      FROM bsis CLIENT SPECIFIED
+      INTO TABLE gt_bsis_doc
+      FOR ALL ENTRIES IN gt_data
+      WHERE mandt = sy-mandt
+      AND   bukrs = gt_data-bukrs
+*      AND   hkont = gt_bsis_gl1-hkont
+*      AND   gjahr = gt_data-gjahr      
+      AND   gjahr = gt_data-inv_gjahr                       
+      AND   belnr = gt_data-inv
+*      AND   bschl GE '40'
+*      AND   buzid <> 'T'.
+    AND    shkzg = 'H'.
+
+
+    SELECT bukrs
+           hkont
+           augdt
+           augbl
+           zuonr
+           gjahr
+           belnr
+           buzei
+           budat
+           bldat
+           waers
+           xblnr
+           blart
+           monat
+           bschl
+           shkzg
+           mwskz    
+           dmbtr
+           wrbtr
+           sgtxt
+           kostl
+           vbund
+           projk
+      FROM bsas CLIENT SPECIFIED
+      APPENDING TABLE gt_bsis_doc
+      FOR ALL ENTRIES IN gt_data
+      WHERE mandt = sy-mandt
+      AND   bukrs = gt_data-bukrs
+*      AND   hkont = gt_bsis_gl1-hkont
+*      AND   gjahr = gt_data-gjahr    
+      AND   gjahr = gt_data-inv_gjahr                      
+      AND   belnr = gt_data-inv
+*      AND   bschl GE '40'
+*      AND   buzid <> 'T'.
+    AND    shkzg = 'H'.
+
+  ENDIF.
+
+  CLEAR gs_setleaf.
+  SELECT SINGLE *
+   FROM setleaf CLIENT SPECIFIED
+   INTO gs_setleaf
+   WHERE mandt = sy-mandt
+  AND   setname = 'ZFI_TDS_CUTDATE'.
+
+*  SELECT *
+*   FROM setleaf CLIENT SPECIFIED
+*   INTO CORRESPONDING FIELDS OF TABLE gt_setleaf
+*   WHERE mandt = sy-mandt
+*   AND   setname = 'ZFI_EXCLUDE_GL'.
+*
+*  LOOP AT gt_setleaf INTO gs_setleaf.
+*    DELETE gt_bsis_doc WHERE hkont = gs_setleaf-valfrom.
+*    CLEAR gs_setleaf.
+*  ENDLOOP.
+
+*  REFRESH gt_setleaf[].
+*
+*  SELECT *
+*  FROM setleaf CLIENT SPECIFIED
+*  INTO CORRESPONDING FIELDS OF TABLE gt_setleaf
+*  WHERE mandt = sy-mandt
+*  AND   setname = 'ZFI_BSCHL'.
+*
+*  LOOP AT gt_bsis_doc INTO gs_bsis_doc.
+*    CLEAR gs_setleaf.
+*    READ TABLE gt_setleaf INTO gs_setleaf WITH KEY valfrom = gs_bsis_doc-bschl.
+*    IF sy-subrc EQ 0.
+*      DELETE TABLE gt_bsis_doc FROM gs_bsis_doc.
+*    ENDIF.
+*
+*    CLEAR gs_bsis_doc.
+*  ENDLOOP.
+
+
+  LOOP AT gt_bsis_doc INTO gs_bsis_doc.
+    CLEAR gs_collect.
+    gs_collect-bukrs = gs_bsis_doc-bukrs.
+    gs_collect-gjahr = gs_bsis_doc-gjahr.
+    gs_collect-belnr = gs_bsis_doc-belnr.
+    gs_collect-dmbtr = gs_bsis_doc-dmbtr.
+    COLLECT gs_collect INTO gt_collect.
+    CLEAR gs_bsis_doc.
+  ENDLOOP.
+
+  SORT gt_collect BY bukrs gjahr belnr.
+
+  DELETE gt_with_item WHERE ( witht IS INITIAL OR wt_withcd IS INITIAL ).
+*  DELETE gt_with_item WHERE wt_qbshh IS INITIAL.
+
+  SORT gt_with_item BY belnr gjahr.
+
+  DATA(gt_with_item2) = gt_with_item[].
+  REFRESH: gt_with_item.
+  LOOP AT gt_with_item2 INTO DATA(ls_with_item).
+    CLEAR: ls_with_item-buzei, ls_with_item-qsatz.
+    COLLECT ls_with_item INTO gt_with_item.
+  ENDLOOP.
+
+  DELETE ADJACENT DUPLICATES FROM gt_with_item COMPARING belnr witht wt_withcd.
+  DATA: lv_amt TYPE string.
+
+  SORT gt_data BY hkont gjahr belnr.
+  SORT gt_bsis_gl BY gjahr belnr buzei .
+  SORT gt_final BY  hkont gjahr  belnr buzei inv.
+  SORT:gt_t059u BY witht,              " ME.NO(221173) added by Gopalakrishna suggested by Abhay Mehta on 17.02.2016 to display withholding tax type desc and tax code desc.
+       gt_t059zt BY witht wt_withcd.   " ME.NO(221173) added by Gopalakrishna suggested by Abhay Mehta on 17.02.2016 to display withholding tax type desc and tax code desc.
+  LOOP AT gt_data INTO gs_data.
+
+    READ TABLE gt_with_item INTO gs_with_item WITH KEY belnr = gs_data-inv
+*                                                       gjahr = gs_data-gjahr "changes added by sunita 03.02.2015
+                                                       gjahr = gs_data-inv_gjahr "SRDK918874
+                                                       BINARY SEARCH.
+    IF sy-subrc = 0.
+      LOOP AT gt_with_item INTO gs_with_item WHERE belnr = gs_data-inv
+*                                              AND gjahr = gs_data-gjahr. "changes added by sunita 03.02.2015
+                                               AND gjahr = gs_data-inv_gjahr. "SRDK918874
+        CLEAR : lv_amt.
+
+*        CLEAR gs_bsis.
+*        READ TABLE gt_bsis_gl INTO gs_bsis WITH KEY belnr = gs_data-belnr
+*                                                    buzei = gs_data-buzei
+*                                                    BINARY SEARCH.
+*        lv_amt =   gs_with_item-wt_qbshh / gs_bsis-dmbtr .
+
+*        CLEAR gs_collect.
+*        READ TABLE gt_collect INTO gs_collect WITH KEY bukrs = gs_data-bukrs
+*                                                       gjahr = gs_data-gjahr
+*                                                       belnr = gs_data-belnr
+*                                              BINARY SEARCH.
+        IF gs_data-budat GE gs_setleaf-valfrom.
+
+          IF  gs_with_item-wt_qsshh NE '0.00'.
+
+            lv_amt =   gs_with_item-wt_qbshh / gs_with_item-wt_qsshh.
+          ENDIF.
+
+        ELSE.
+
+          CLEAR gs_collect.
+          READ TABLE gt_collect INTO gs_collect WITH KEY bukrs = gs_data-bukrs
+                                                         gjahr = gs_data-gjahr
+                                                         belnr = gs_data-belnr
+                                                BINARY SEARCH.
+          IF sy-subrc EQ 0.
+            IF gs_collect-dmbtr NE '0.00'.
+              lv_amt =   gs_with_item-wt_qbshh / gs_collect-dmbtr.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+        IF lv_amt LT 0.
+          lv_amt = lv_amt * ( -1 ).
+        ENDIF.
+
+
+
+*        lv_rate =
+        gs_data-witht  = gs_with_item-witht.
+        gs_data-wt_withcd  = gs_with_item-wt_withcd.
+        gs_data-wt_qbshh = gs_data-dmbtr * lv_amt . "gs_with_item-wt_qbshh.
+        gs_data-wt_qsshh = gs_with_item-wt_qsshh.
+        gs_data-qsatz = gs_with_item-qsatz.
+*        gs_data-gjahr = gs_collect-gjahr. 
+
+
+        CLEAR ls_t059u.
+        READ TABLE gt_t059u INTO ls_t059u WITH KEY witht = gs_data-witht
+                                          BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          gs_data-witht_desc = ls_t059u-text40.
+
+          CLEAR ls_t059zt.
+          READ TABLE gt_t059zt INTO ls_t059zt WITH KEY witht     = gs_data-witht
+                                                       wt_withcd = gs_data-wt_withcd
+                                              BINARY SEARCH.
+          IF sy-subrc EQ 0.
+            gs_data-wt_withcd_desc = ls_t059zt-text40.
+          ENDIF.
+        ENDIF.
+
+        CLEAR gs_data_temp.
+        READ TABLE gt_final INTO gs_data_temp WITH KEY  hkont = gs_data-hkont
+*                                                        gjahr = gs_data-gjahr "changes added by sunita 03.02.2015
+                                                        gjahr = gs_data-inv_gjahr "SRDK918874
+                                                        belnr = gs_data-belnr
+                                                        buzei = gs_data-buzei
+                                                        inv = gs_data-inv.
+*                                                         BINARY SEARCH.
+        IF sy-subrc = 0 .
+          CLEAR  gs_data-dmbtr.
+*          CLEAR: gs_data-hwste ,
+*          gs_data-mwskz ,
+*          gs_data-hwbas ,
+*          gs_data-fwste.
+          APPEND gs_data TO gt_final.
+        ELSE.
+          APPEND gs_data TO gt_final.
+        ENDIF.
+*        DELETE gt_with_item  WHERE belnr = gs_data-inv
+*                             AND   witht  = gs_with_item-witht
+*                           AND wt_withcd  = gs_with_item-wt_withcd.
+        CLEAR gs_with_item.
+        CLEAR : gs_data-witht  ,
+        gs_data-wt_withcd  ,
+        gs_data-wt_qbshh ,
+        gs_data-qsatz .
+      ENDLOOP.
+    ELSE.
+      APPEND gs_data TO gt_final.
+    ENDIF.
+    CLEAR gs_data.
+  ENDLOOP.
+
+  IF gt_final[] IS NOT INITIAL.
+
+    SELECT bukrs belnr gjahr  kursf FROM bkpf INTO TABLE lt_bkpf
+      FOR ALL ENTRIES IN gt_final
+      WHERE bukrs = gt_final-bukrs
+        AND belnr = gt_final-belnr
+    AND gjahr = gt_final-gjahr.
+    IF sy-subrc = 0.
+      SELECT bukrs belnr gjahr  kursf FROM bkpf APPENDING TABLE lt_bkpf
+    FOR ALL ENTRIES IN gt_final
+    WHERE bukrs = gt_final-bukrs
+      AND belnr = gt_final-inv
+      AND gjahr = gt_final-inv_gjahr.
+
+      DELETE ADJACENT DUPLICATES FROM lt_bkpf COMPARING bukrs belnr gjahr.
+    ENDIF.
+
+    LOOP AT gt_final INTO gs_data.
+
+      CALL FUNCTION 'GET_GKONT'
+        EXPORTING
+          belnr           = gs_data-belnr
+          bukrs           = gs_data-bukrs
+          buzei           = gs_data-buzei
+          gjahr           = gs_data-gjahr
+          gknkz           = '3'
+        IMPORTING
+          gkont           = gs_data-gkont
+*         KOART           =
+*         GHKON           =
+        EXCEPTIONS
+          belnr_not_found = 1
+          buzei_not_found = 2
+          gknkz_not_found = 3
+          OTHERS          = 4.
+      IF sy-subrc = 0.
+        MODIFY gt_final FROM gs_data TRANSPORTING gkont WHERE bukrs = gs_data-bukrs
+                                                           AND belnr = gs_data-belnr.
+
+      ENDIF.
+      CLEAR: gs_data,gs_bseg_add,lv_buzei ,ls_bkpf.
+    ENDLOOP.
+
+    SELECT * INTO TABLE gt_skat1
+          FROM skat CLIENT SPECIFIED
+          FOR ALL ENTRIES IN gt_final
+          WHERE mandt = sy-mandt
+          AND   spras = c_en
+          AND   ktopl = c_star
+    AND  saknr = gt_final-gkont.
+
+    IF gt_skat1[] IS NOT INITIAL.
+      LOOP AT gt_final INTO gs_data.
+	  
+*TDS bal and GL bal calc.
+        READ TABLE lt_bkpf INTO ls_bkpf WITH KEY bukrs = gs_data-bukrs
+                                                 belnr = gs_data-belnr
+                                                 gjahr = gs_data-gjahr.
+        IF sy-subrc = 0.
+          lv_exch_belnr = ls_bkpf-kursf.
+
+          READ TABLE lt_bkpf INTO ls_bkpf WITH KEY bukrs = gs_data-bukrs
+                                                 belnr = gs_data-inv
+                                                 gjahr = gs_data-inv_gjahr.
+          IF sy-subrc = 0.
+            lv_exch_inv = ls_bkpf-kursf.
+          ENDIF.
+
+          IF lv_exch_belnr IS NOT INITIAL.
+            gs_data-tds_bal = ( gs_data-wt_qbshh / lv_exch_belnr ) * lv_exch_inv.
+            gs_data-gl_bal =  ( gs_data-dmbtr / lv_exch_belnr ) * lv_exch_inv.
+          ENDIF.
+
+        ENDIF.
+
+        READ TABLE gt_skat1 INTO gs_skat WITH KEY spras = c_en
+                                                  ktopl = c_star
+                                                  saknr = gs_data-gkont.
+        IF sy-subrc = 0.
+          gs_data-g_desc = gs_skat-txt20.
+        ENDIF.
+        MODIFY gt_final FROM gs_data TRANSPORTING g_desc tds_bal gl_bal WHERE bukrs = gs_data-bukrs
+                                                           AND belnr = gs_data-belnr
+                                                           AND gjahr = gs_data-gjahr
+                                                           AND buzei = gs_data-buzei
+                                                           AND gkont = gs_data-gkont.
+        CLEAR: gs_data, gs_skat,ls_bkpf, lv_exch_belnr, lv_exch_inv.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+
+  DATA: ltemp TYPE TABLE OF ty_data.
+  REFRESH ltemp.
+  LOOP AT gt_final ASSIGNING FIELD-SYMBOL(<lstmp>).
+    CLEAR: <lstmp>-buzei.
+    COLLECT <lstmp> INTO ltemp.
+  ENDLOOP.
+  LOOP AT ltemp ASSIGNING <lstmp>.
+    CLEAR: <lstmp>-qsatz, <lstmp>-wt_qsshh.
+    <lstmp>-qsatz = VALUE #( gt_with_item2[ belnr = <lstmp>-inv
+                                            gjahr = <lstmp>-inv_gjahr
+                                          ]-qsatz OPTIONAL ).
+    READ TABLE gt_with_item INTO DATA(ls_with)
+               WITH KEY belnr = <lstmp>-inv
+                        gjahr = <lstmp>-inv_gjahr
+                        bukrs = <lstmp>-bukrs.
+    IF sy-subrc EQ 0.
+      <lstmp>-wt_qsshh = ls_with-wt_qsshh.
+    ENDIF.
+    CLEAR: ls_with.
+  ENDLOOP.
+  REFRESH gt_final.
+  gt_final[] = ltemp[].
+
+*  gt_final[] = gt_data[].
+
+*----------------------------------------------------------------------*
+* SOC: Deal Memo Additions "Added by Ankit
+*----------------------------------------------------------------------*
+  FREE: gw_dealmemo.
+  DATA: lv_anln1 TYPE anla-anln1.
+  DATA: lv_anln2 TYPE anla-anln2.
+  IF gt_dealmemo IS NOT INITIAL.
+    LOOP AT gt_final ASSIGNING FIELD-SYMBOL(<fs_final>).
+      IF <fs_final>-projk IS NOT INITIAL.
+        READ TABLE gt_dealmemo INTO gw_dealmemo WITH KEY pspnr = <fs_final>-projk.
+      ELSE.
+        IF <fs_final>-xref3 IS NOT INITIAL.
+          SPLIT <fs_final>-xref3 AT '-' INTO lv_anln1 lv_anln2 DATA(lv_prog_id1).
+          CONDENSE: lv_anln1, lv_anln2, lv_prog_id1.
+        ENDIF.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+          EXPORTING
+            input  = lv_anln1
+          IMPORTING
+            output = lv_anln1.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+          EXPORTING
+            input  = lv_anln2
+          IMPORTING
+            output = lv_anln2.
+
+        READ TABLE gt_dealmemo INTO gw_dealmemo WITH KEY bukrs = <fs_final>-bukrs
+                                                         belnr = <fs_final>-belnr
+                                                         gjahr = <fs_final>-gjahr
+                                                         doc_no = <fs_final>-xref2
+                                                         anln1 = lv_anln1
+                                                         anln2 = lv_anln2.
+      ENDIF.
+
+      IF sy-subrc EQ 0.
+        <fs_final>-dm_no  = gw_dealmemo-doc_no.
+        <fs_final>-epiid  = gw_dealmemo-epi_id.
+        <fs_final>-progid = gw_dealmemo-prog_id1.
+        <fs_final>-projk  = gw_dealmemo-pspnr.
+        <fs_final>-anln1  = gw_dealmemo-anln1.
+        <fs_final>-anln2  = gw_dealmemo-anln2.
+        <fs_final>-txt50  = gw_dealmemo-txt50.
+        <fs_final>-ownid  = gw_dealmemo-owner_chnl.
+        <fs_final>-cmmas  = gw_dealmemo-prog_nature.
+      ENDIF.
+
+    ENDLOOP.
+  ENDIF.
+
+
+  IF s_prgid IS NOT INITIAL
+   OR s_epid IS NOT INITIAL
+   OR s_docn IS NOT INITIAL
+   OR s_ownr IS NOT INITIAL.
+
+    DELETE gt_final WHERE progid NOT IN s_prgid
+                       OR epiid  NOT IN s_epid
+                       OR dm_no  NOT IN s_docn
+                       OR ownid  NOT IN s_ownr.
+
+  ENDIF.
+*----------------------------------------------------------------------*
+* SOC: Deal Memo Additions "Added by Ankit
+*----------------------------------------------------------------------*
+ENDFORM.                    " PROCESS_DATA

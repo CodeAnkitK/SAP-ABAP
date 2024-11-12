@@ -1,0 +1,200 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_VENDOR_SERVICETAX_V2_ALV
+*&---------------------------------------------------------------------*
+DEFINE set_field_title.
+    WHEN &1.
+      lv_label_s = &2.
+      lv_label_m = &3.
+      lv_label_l = &4.
+END-OF-DEFINITION.
+CLASS cl_rev DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      alv_set_columns CHANGING ct_cols TYPE salv_t_column_ref
+                               co_aggr TYPE REF TO cl_salv_aggregations.
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      alv_set_label CHANGING co_col TYPE REF TO cl_salv_column_table.
+ENDCLASS.
+
+CLASS cl_rev IMPLEMENTATION.
+  METHOD alv_set_columns.
+    DATA: lo_col       TYPE REF TO cl_salv_column_table,
+          lo_exception TYPE REF TO cx_root.
+
+    LOOP AT ct_cols ASSIGNING FIELD-SYMBOL(<fs_cols>).
+      lo_col ?= <fs_cols>-r_column.
+      CHECK lo_col IS NOT INITIAL.
+************************************************************************
+**      Set Keys
+*      IF <fs_cols>-columnname EQ 'VBELN'
+*        OR <fs_cols>-columnname EQ 'POSNR'.
+*        lo_col->set_key( if_salv_c_bool_sap=>true ).
+*      ENDIF.
+************************************************************************
+**      Hide columns
+*      IF p_lc IS INITIAL.
+*        IF <fs_cols>-columnname+0(6) EQ 'DMBTR_'
+*          OR <fs_cols>-columnname EQ 'TOTAL_LC'.
+*          lo_col->set_technical( if_salv_c_bool_sap=>true ).
+*        ENDIF.
+*      ENDIF.
+************************************************************************
+**      add aggregations
+*      IF lo_col->get_ddic_datatype( ) EQ 'CURR' AND lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+*        TRY.
+*            co_aggr->add_aggregation( columnname = <fs_cols>-columnname
+*                                      aggregation = if_salv_c_aggregation=>total ).
+*          CATCH cx_salv_data_error
+*                cx_salv_not_found
+*                cx_salv_existing INTO lo_exception.
+*            DATA(lv_msg) = lo_exception->get_text( ).
+*            MESSAGE lv_msg TYPE 'I'.
+*        ENDTRY.
+*
+*        TRY.
+*            lo_col->set_currency_column( 'WAERS' ).
+*          CATCH cx_salv_not_found
+*                cx_salv_data_error INTO lo_exception.
+*            lv_msg = lo_exception->get_text( ).
+*            MESSAGE lv_msg TYPE 'I'.
+*        ENDTRY.
+*
+*        IF lo_col->has_sign( ) EQ if_salv_c_bool_sap=>false.
+*          lo_col->set_sign( if_salv_c_bool_sap=>true ).
+*        ENDIF.
+*      ENDIF.
+*
+****************************************************************************************
+*     add appropriate lables
+      IF lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+        cl_rev=>alv_set_label( CHANGING co_col = lo_col ).
+      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD alv_set_label.
+
+    CHECK co_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+    DATA: lv_label_s TYPE scrtext_s,
+          lv_label_m TYPE scrtext_m,
+          lv_label_l TYPE scrtext_l.
+
+    DATA(lv_colname) = co_col->get_columnname( ).
+    CASE lv_colname.
+      set_field_title 'BUKRS' 'CoCode' '' 'Company Code'.
+      set_field_title 'HKONT' '' '' 'GL Acct'.
+      set_field_title 'TXT20' '' '' 'GL Acct Desc'.
+      set_field_title 'BELNR' '' '' 'Document No'.
+      set_field_title 'BLART' '' '' 'Doc Type'.
+      set_field_title 'INV' '' ''  'Invoice No'.
+      set_field_title 'INV_DATE' '' '' 'Invoice Booking date'.
+      set_field_title 'MWSKZ' '' '' 'Tax Code'.
+      set_field_title 'HWSTE' '' '' 'Tax Amount'.
+      set_field_title 'WITHT' '' '' 'W/tax type'.
+      set_field_title 'WITHT_DESC' '' '' 'W/tax type Desc'.
+      set_field_title 'WT_WITHCD' '' '' 'W/tax code'.
+      set_field_title 'WT_WITHCD_DESC' '' '' 'W/tax code Desc'.
+      set_field_title 'WT_QBSHH' '' '' 'TDS Amount'.
+      set_field_title 'WT_QSSHH' '' '' 'Base Amount of TDS'.
+      set_field_title 'QSATZ' '' '' 'TDS(Actual)Rate'.
+      set_field_title 'INV_TYPE' '' '' 'Invoice Type'.
+      set_field_title 'EBELN' '' '' 'PO Number'.
+      set_field_title 'DMBTR' '' '' 'GL bal loc'.
+      set_field_title 'AUGBL' '' '' 'Clrng doc.'.
+      set_field_title 'AUGDT' '' '' 'Date of Payment'.
+      set_field_title 'LIFNR' '' '' 'Vendor'.
+      set_field_title 'NAME1' '' '' 'Vendor Desc'.
+      set_field_title 'J_1IPANNO' '' '' 'PAN of the party'.
+      set_field_title 'ADDRESS' '' '' 'Address'.
+      set_field_title 'XBLNR' '' '' 'Reference'.
+      set_field_title 'BKTXT' '' '' 'Document Header Text'.
+      set_field_title 'LDGRP' '' '' 'Ledger Grp'.
+      set_field_title 'SGTXT' '' '' 'Text'.
+      set_field_title 'KOSTL' '' '' 'Cost Ctr'.
+      set_field_title 'PROJK' '' '' 'WBS Element'.
+      set_field_title 'USNAM' '' '' 'User Name'.
+      set_field_title 'VBUND' '' '' 'Tr.Prt'.
+      set_field_title 'BUDAT' '' '' 'Pstng Date'.
+      set_field_title 'BLDAT' '' '' 'Doc. Date'.
+      set_field_title 'CPUDT' '' '' 'Entry Date'.
+      set_field_title 'WAERS' '' '' 'Transaction currency'.
+      set_field_title 'WRBTR' '' '' 'Amount in T curr'.
+      set_field_title 'HWBAS' '' '' 'Tax Base Amount in Local Currency'.
+      set_field_title 'FWSTE' '' '' 'Tax Amount in Document Currency'.
+      set_field_title 'GKONT' '' '' 'Offset Account'.
+      set_field_title 'G_DESC' '' '' 'Offset Account Desc'.
+      set_field_title 'TDS_BAL' '' '' 'TDS ON INVOICE RATE'.
+      set_field_title 'GL_BAL' '' '' 'GL BALANCE ON INVOICE RATE'.
+      set_field_title 'STBLG' '' '' 'Reverse Doc No'.
+      set_field_title 'STJAH' '' '' 'Reverse Doc Year'.
+      set_field_title 'ZUONR' '' '' 'Assignment'.
+      set_field_title 'REV_DATE' '' '' 'Reversal entry Date'.
+      set_field_title 'GJAHR' '' '' 'Financial Year'.
+      set_field_title 'PRCTR' '' '' 'Profit Center'.
+      set_field_title 'SEGMENT' '' '' 'Profit Centre Segment'.
+      set_field_title 'CMMAS' '' '' 'Content Type'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    IF lv_label_s IS NOT INITIAL OR
+       lv_label_m IS NOT INITIAL OR
+       lv_label_l IS NOT INITIAL.
+      co_col->set_short_text( lv_label_s ).
+      co_col->set_medium_text( lv_label_m ).
+      co_col->set_long_text( lv_label_l ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+
+FORM alv_display.
+  DATA: lt_out       TYPE TABLE OF ty_data,
+        lo_exception TYPE REF TO cx_root.
+
+  lt_out = CORRESPONDING #( gt_final ).
+
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = DATA(lo_alv)
+        CHANGING
+          t_table      = lt_out.
+    CATCH cx_salv_msg INTO lo_exception.
+      DATA(lv_msg) = lo_exception->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+
+*    Set all default ALV functions
+  lo_alv->get_functions( )->set_all( if_salv_c_bool_sap=>true ).
+
+*    Layout settings
+  lo_alv->get_layout( )->set_key( VALUE #( report = sy-repid ) ).
+  lo_alv->get_layout( )->set_save_restriction( if_salv_c_layout=>restrict_none ).
+  IF p_layout IS NOT INITIAL.
+    lo_alv->get_layout( )->set_initial_layout( p_layout ).
+  ELSE.
+    lo_alv->get_layout( )->set_default( if_salv_c_bool_sap=>true ).
+  ENDIF.
+
+******* Aggregate Function Settings *******
+  DATA(lo_aggr) = lo_alv->get_aggregations( ).                      "Get Aggregate Functions"
+
+*    Display settings
+  lo_alv->get_display_settings( )->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  lo_alv->get_display_settings( )->set_list_header( sy-title ).
+  lo_alv->get_display_settings( )->set_list_header_size( cl_salv_display_settings=>c_header_size_medium ).
+
+*    Set Columns details
+  lo_alv->get_columns( )->set_optimize( if_salv_c_bool_sap=>true ).
+  lo_alv->get_columns( )->set_key_fixation( if_salv_c_bool_sap=>true ).
+
+  DATA(lt_columns) = lo_alv->get_columns( )->get( ).
+
+  CALL METHOD cl_rev=>alv_set_columns(
+    CHANGING
+      ct_cols = lt_columns
+      co_aggr = lo_aggr ).
+
+  CALL METHOD lo_alv->display( ).
+ENDFORM.

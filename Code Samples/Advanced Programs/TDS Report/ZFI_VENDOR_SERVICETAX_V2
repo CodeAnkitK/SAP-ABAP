@@ -1,0 +1,35 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFI_VENDOR_SERVICETAX_V2
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zfi_vendor_servicetax_v2.
+
+*---------------------------------------------------------------------*
+*       MODULE : FI                                   *
+*---------------------------------------------------------------------*
+INCLUDE  zfi_vendor_servicetax_v2_top.
+INCLUDE  zfi_vendor_servicetax_v2_scr.
+INCLUDE  zfi_vendor_servicetax_v2_fnc.
+INCLUDE  zfi_vendor_servicetax_v2_lgc.
+INCLUDE  zfi_vendor_servicetax_v2_dnl.
+INCLUDE  zfi_vendor_servicetax_v2_alv.
+
+*----------------------------------------------------------------------*
+*                       START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_data.
+  PERFORM get_mils_data.
+  PERFORM get_po_data.
+  PERFORM get_invoice_details.
+  PERFORM get_dealmemo_info. 
+  PERFORM process_data.
+
+  IF p_alv IS NOT INITIAL.
+    PERFORM alv_display.
+  ELSE.
+    PERFORM download_data.
+  ENDIF.
