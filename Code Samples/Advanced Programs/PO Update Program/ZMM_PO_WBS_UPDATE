@@ -1,0 +1,432 @@
+*&---------------------------------------------------------------------*
+*& Report  ZSD_PO_WBS_UPDATE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zmm_po_wbs_update.
+
+DEFINE set_field_title.
+  WHEN &1.
+    lv_label_s = &2.
+    lv_label_m = &3.
+    lv_label_l = &4.
+END-OF-DEFINITION.
+
+TYPES: BEGIN OF ty_po_item,
+         ebeln          TYPE ekpo-ebeln, "PO Number
+         ebelp          TYPE ekpo-ebelp, "PO Item
+         ps_psp_pnr_old TYPE ekkn-ps_psp_pnr, "WBS Element
+         ps_psp_pnr_new TYPE ekkn-ps_psp_pnr, "WBS Element
+       END OF ty_po_item.
+
+DATA: lt_po_item TYPE STANDARD TABLE OF ty_po_item.
+DATA: ls_po_item TYPE ty_po_item.
+
+" Function to upload Excel file
+DATA: lv_filename TYPE rlgrap-filename.
+DATA : gt_excel TYPE TABLE OF alsmex_tabline.
+
+DATA table_refresh TYPE c VALUE IS INITIAL.
+DATA lv_answer TYPE c.
+
+SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-000.
+" Get file path from user
+PARAMETERS: p_file TYPE ibipparms-path.
+SELECTION-SCREEN: END OF BLOCK b1.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  PERFORM f4_filename.
+
+START-OF-SELECTION.
+
+  PERFORM read_xls_file.
+  PERFORM process_excel.
+  PERFORM alv_display.
+
+END-OF-SELECTION.
+
+*&---------------------------------------------------------------------*
+*&      Form  F4_FILENAME
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f4_filename .
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      program_name  = syst-cprog
+      dynpro_number = syst-dynnr
+    IMPORTING
+      file_name     = p_file.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  READ_XLS_FILE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM read_xls_file .
+
+  DATA :
+    gd_scol TYPE          i VALUE '1',
+    gd_srow TYPE          i VALUE '2',
+    gd_ecol TYPE          i VALUE '256',
+    gd_erow TYPE          i VALUE '65536'.
+
+  PERFORM sapgui_process_indicator USING 'Reading xls file'.
+
+  lv_filename = p_file.
+  CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+    EXPORTING
+      filename                = lv_filename
+      i_begin_col             = gd_scol
+      i_begin_row             = gd_srow
+      i_end_col               = gd_ecol
+      i_end_row               = gd_erow
+    TABLES
+      intern                  = gt_excel
+    EXCEPTIONS
+      inconsistent_parameters = 1
+      upload_ole              = 2
+      OTHERS                  = 3.
+  IF sy-subrc <> 0.
+    MESSAGE a038(pc) RAISING error_accessing_file.          "#EC *
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SAPGUI_PROCESS_INDICATOR
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_0120   text
+*----------------------------------------------------------------------*
+FORM sapgui_process_indicator  USING  uv_msg.
+  CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+    EXPORTING
+      text = uv_msg.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_EXCEL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM process_excel .
+
+  DATA :  w_row   TYPE int2.
+  DATA: lv_posid TYPE prps-posid.
+
+  LOOP AT gt_excel ASSIGNING FIELD-SYMBOL(<fs_excel>).
+    CASE <fs_excel>-col.
+      WHEN '001'.
+        ls_po_item-ebeln = |{ <fs_excel>-value ALPHA = IN }|.
+      WHEN '002'.
+        ls_po_item-ebelp = |{ <fs_excel>-value ALPHA = IN }|.
+      WHEN '003'.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ABPSN_INPUT'
+          EXPORTING
+            input  = <fs_excel>-value
+          IMPORTING
+            output = lv_posid.
+
+        SELECT SINGLE pspnr FROM prps INTO @DATA(lv_pspnr)
+                            WHERE posid = @lv_posid.
+        IF sy-subrc EQ 0.
+          ls_po_item-ps_psp_pnr_new = lv_pspnr.
+
+          SELECT SINGLE ps_psp_pnr FROM ekkn INTO ls_po_item-ps_psp_pnr_old
+                               WHERE ebeln = ls_po_item-ebeln
+                                 AND ebelp = ls_po_item-ebelp.
+        ENDIF.
+    ENDCASE.
+
+    AT END OF row.
+      w_row = w_row + 1.
+      APPEND ls_po_item TO lt_po_item.
+      CLEAR ls_po_item.
+    ENDAT.
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  UPDATE_TABLE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM update_table .
+  LOOP AT lt_po_item ASSIGNING FIELD-SYMBOL(<fs_po_item>).
+    UPDATE ekkn SET ps_psp_pnr = <fs_po_item>-ps_psp_pnr_new
+                WHERE ebeln = <fs_po_item>-ebeln
+                  AND ebelp = <fs_po_item>-ebelp.
+  ENDLOOP.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'There seems to be some error in updating the tables.' TYPE 'I' DISPLAY LIKE 'E'.
+  ELSE.
+    COMMIT WORK.
+    PERFORM log_update.
+    MESSAGE 'Tables Updated Successfully!.' TYPE 'I' DISPLAY LIKE 'S'.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      CLASS  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+CLASS cl_rev DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      alv_set_columns CHANGING ct_cols TYPE salv_t_column_ref
+                               co_aggr TYPE REF TO cl_salv_aggregations.
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      alv_set_label CHANGING co_col TYPE REF TO cl_salv_column_table.
+ENDCLASS.
+
+CLASS cl_rev IMPLEMENTATION.
+  METHOD alv_set_columns.
+    DATA: lo_col       TYPE REF TO cl_salv_column_table,
+          lo_exception TYPE REF TO cx_root.
+
+    LOOP AT ct_cols ASSIGNING FIELD-SYMBOL(<fs_cols>).
+      lo_col ?= <fs_cols>-r_column.
+      CHECK lo_col IS NOT INITIAL.
+
+*     add appropriate lables
+      IF lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+        cl_rev=>alv_set_label( CHANGING co_col = lo_col ).
+      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD alv_set_label.
+
+    CHECK co_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+    DATA: lv_label_s TYPE scrtext_s,
+          lv_label_m TYPE scrtext_m,
+          lv_label_l TYPE scrtext_l.
+
+    DATA(lv_colname) = co_col->get_columnname( ).
+
+    IF table_refresh IS NOT INITIAL .
+      CASE lv_colname.
+          set_field_title 'EBELN' '' '' 'Purchase Order'.
+          set_field_title 'EBELP' '' '' 'Item No.'.
+          set_field_title 'PS_PSP_PNR_NEW' '' '' 'NEW WBS No.'.
+          set_field_title 'PS_PSP_PNR_OLD' '' '' 'Updated WBS No.'.
+        WHEN OTHERS.
+      ENDCASE.
+    ELSE.
+      CASE lv_colname.
+          set_field_title 'EBELN' '' '' 'Purchase Order'.
+          set_field_title 'EBELP' '' '' 'Item No.'.
+          set_field_title 'PS_PSP_PNR_NEW' '' '' 'NEW WBS No.'.
+          set_field_title 'PS_PSP_PNR_OLD' '' '' 'OLD WBS No.'.
+        WHEN OTHERS.
+      ENDCASE.
+    ENDIF.
+
+
+    IF lv_label_s IS NOT INITIAL OR
+       lv_label_m IS NOT INITIAL OR
+       lv_label_l IS NOT INITIAL.
+      co_col->set_short_text( lv_label_s ).
+      co_col->set_medium_text( lv_label_m ).
+      co_col->set_long_text( lv_label_l ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+CLASS lcl_salv_handler DEFINITION DEFERRED.
+CLASS lcl_salv_handler DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS : on_user_command FOR EVENT added_function OF cl_salv_events
+      IMPORTING e_salv_function.
+
+    CLASS-METHODS : handle_click FOR EVENT double_click OF cl_salv_events_table
+      IMPORTING row column.
+
+    CLASS-METHODS : added_function FOR EVENT added_function OF cl_salv_events_table
+      IMPORTING e_salv_function.
+ENDCLASS.
+CLASS lcl_salv_handler IMPLEMENTATION.
+  METHOD on_user_command.
+    PERFORM handle_user_command USING e_salv_function.
+  ENDMETHOD.                    "on_user_command
+
+  METHOD: handle_click .
+
+  ENDMETHOD.
+
+  METHOD added_function .
+
+  ENDMETHOD.
+ENDCLASS.
+*&---------------------------------------------------------------------*
+*&      Form  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM alv_display .
+
+  DATA: gr_events TYPE REF TO lcl_salv_handler.
+
+  DATA: lt_out       TYPE TABLE OF ty_po_item,
+        lo_exception TYPE REF TO cx_root.
+
+  lt_out = CORRESPONDING #( lt_po_item ).
+
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = DATA(lo_alv)
+        CHANGING
+          t_table      = lt_out.
+    CATCH cx_salv_msg INTO lo_exception.
+      DATA(lv_msg) = lo_exception->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+
+*    Set all default ALV functions
+  lo_alv->get_functions( )->set_all( if_salv_c_bool_sap=>true ).
+
+*    Layout settings
+  lo_alv->get_layout( )->set_key( VALUE #( report = sy-repid ) ).
+  lo_alv->get_layout( )->set_save_restriction( if_salv_c_layout=>restrict_none ).
+  lo_alv->get_layout( )->set_default( if_salv_c_bool_sap=>true ).
+
+******* Aggregate Function Settings *******
+  DATA(lo_aggr) = lo_alv->get_aggregations( ).                      "Get Aggregate Functions"
+
+*    Display settings
+  lo_alv->get_display_settings( )->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  lo_alv->get_display_settings( )->set_list_header( sy-title ).
+  lo_alv->get_display_settings( )->set_list_header_size( cl_salv_display_settings=>c_header_size_medium ).
+
+*    Set Columns details
+  lo_alv->get_columns( )->set_optimize( if_salv_c_bool_sap=>true ).
+  lo_alv->get_columns( )->set_key_fixation( if_salv_c_bool_sap=>true ).
+
+  DATA(lt_columns) = lo_alv->get_columns( )->get( ).
+
+  CALL METHOD cl_rev=>alv_set_columns(
+    CHANGING
+      ct_cols = lt_columns
+      co_aggr = lo_aggr ).
+
+
+  IF table_refresh IS INITIAL .
+    lo_alv->set_screen_status( pfstatus = 'ALV_ACTION'
+                                  report = sy-repid
+                                  set_functions = lo_alv->c_functions_all ).
+
+    DATA: lr_events TYPE REF TO cl_salv_events_table.
+
+    lr_events = lo_alv->get_event( ).
+    CREATE OBJECT gr_events.
+    SET HANDLER gr_events->on_user_command FOR lr_events.
+
+  ENDIF.
+  CALL METHOD lo_alv->display( ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  handle_user_command
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM handle_user_command USING i_ucomm TYPE salv_de_function.
+
+  CASE i_ucomm.
+
+    WHEN '&EXEC'.
+      PERFORM change_execution.
+      table_refresh = 'X'.
+      PERFORM alv_display.
+  ENDCASE.
+
+ENDFORM.                    " handle_user_command
+*&---------------------------------------------------------------------*
+*&      Form  CHANGE_EXECUTION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM change_execution .
+  CALL FUNCTION 'POPUP_TO_CONFIRM'
+    EXPORTING
+      titlebar              = 'Confirmation'
+*     DIAGNOSE_OBJECT       = ' '
+      text_question         = 'Do you want to update the table now?'
+      text_button_1         = 'YES'
+*     ICON_BUTTON_1         = ' '
+      text_button_2         = 'No'
+*     ICON_BUTTON_2         = ' '
+      default_button        = '2'
+      display_cancel_button = 'X'
+*     USERDEFINED_F1_HELP   = ' '
+*     START_COLUMN          = 25
+*     START_ROW             = 6
+*     POPUP_TYPE            =
+*     IV_QUICKINFO_BUTTON_1 = ' '
+*     IV_QUICKINFO_BUTTON_2 = ' '
+    IMPORTING
+      answer                = lv_answer
+* TABLES
+*     PARAMETER             =
+    EXCEPTIONS
+      text_not_found        = 1
+      OTHERS                = 2.
+
+  IF sy-subrc EQ 0 AND lv_answer EQ 1.
+    PERFORM update_table .
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  LOG_UPDATE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM log_update .
+  DATA gt_log TYPE STANDARD TABLE OF zpo_wbs_upd_log.
+  DATA gw_log TYPE zpo_wbs_upd_log.
+
+  IF lt_po_item IS NOT INITIAL.
+    LOOP AT lt_po_item  ASSIGNING FIELD-SYMBOL(<fs_po_item>).
+      gw_log-ebeln = <fs_po_item>-ebeln.
+      gw_log-ebelp = <fs_po_item>-ebelp.
+      gw_log-ps_psp_pnr_new = <fs_po_item>-ps_psp_pnr_new.
+      gw_log-ps_psp_pnr_old = <fs_po_item>-ps_psp_pnr_old.
+      gw_log-updated       = sy-datum.
+      gw_log-update_time   = sy-uzeit.
+      gw_log-usnam         = sy-uname.
+      APPEND gw_log TO gt_log.
+      CLEAR: gw_log.
+    ENDLOOP.
+  ENDIF.
+
+  IF gt_log IS NOT INITIAL.
+    MODIFY zpo_wbs_upd_log FROM TABLE gt_log.
+  ENDIF.
+
+ENDFORM.

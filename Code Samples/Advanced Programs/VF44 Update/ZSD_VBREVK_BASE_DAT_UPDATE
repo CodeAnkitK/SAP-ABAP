@@ -1,0 +1,419 @@
+*&---------------------------------------------------------------------*
+*& Report  ZSD_BILLING_CORRECTION_PRG
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zsd_vbrevk_base_dat_update.
+
+DEFINE set_field_title.
+  WHEN &1.
+    lv_label_s = &2.
+    lv_label_m = &3.
+    lv_label_l = &4.
+END-OF-DEFINITION.
+
+TYPES: BEGIN OF ty_vbrevk,
+         vbeln        TYPE vbrevk-vbeln,
+         posnr        TYPE vbrevk-posnr,
+         auart        TYPE vbrevk-auart,
+         waerk        TYPE vbrevk-waerk,
+         base_dat_old TYPE vbrevk-base_dat,
+         base_dat_new TYPE vbrevk-base_dat,
+         upd_msg      TYPE text20,
+       END OF ty_vbrevk.
+
+DATA lv_answer TYPE c.
+DATA t_vbrevk TYPE TABLE OF ty_vbrevk.
+DATA gw_vbrevk TYPE ty_vbrevk.
+DATA table_refresh TYPE c VALUE IS INITIAL.
+
+SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-000.
+PARAMETERS: rg_back RADIOBUTTON GROUP g1.
+PARAMETERS: rg_forw RADIOBUTTON GROUP g1.
+SELECTION-SCREEN: END OF BLOCK b1.
+
+START-OF-SELECTION.
+  PERFORM data_selection.
+
+  IF rg_forw EQ 'X' .
+    PERFORM exec_foreground.
+  ENDIF.
+
+  IF rg_back EQ 'X' .
+    PERFORM exec_background.
+  ENDIF.
+
+  PERFORM update_log.
+
+END-OF-SELECTION.
+
+
+*&---------------------------------------------------------------------*
+*&      CLASS  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+CLASS cl_rev DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      alv_set_columns CHANGING ct_cols TYPE salv_t_column_ref
+                               co_aggr TYPE REF TO cl_salv_aggregations.
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      alv_set_label CHANGING co_col TYPE REF TO cl_salv_column_table.
+ENDCLASS.
+
+CLASS cl_rev IMPLEMENTATION.
+  METHOD alv_set_columns.
+    DATA: lo_col       TYPE REF TO cl_salv_column_table,
+          lo_exception TYPE REF TO cx_root.
+
+    LOOP AT ct_cols ASSIGNING FIELD-SYMBOL(<fs_cols>).
+      lo_col ?= <fs_cols>-r_column.
+      CHECK lo_col IS NOT INITIAL.
+
+*     add appropriate lables
+      IF lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+        cl_rev=>alv_set_label( CHANGING co_col = lo_col ).
+      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD alv_set_label.
+
+    CHECK co_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+    DATA: lv_label_s TYPE scrtext_s,
+          lv_label_m TYPE scrtext_m,
+          lv_label_l TYPE scrtext_l.
+
+    DATA(lv_colname) = co_col->get_columnname( ).
+    CASE lv_colname.
+        set_field_title 'VBELN' 'Cntr.no' '' 'Contract no.'.
+        set_field_title 'POSNR' '' '' 'Item No.'.
+        set_field_title 'AUART' '' '' 'Contract doc type'.
+        set_field_title 'WAERK' '' '' 'Currency.'.
+        set_field_title 'BASE_DAT_NEW' '' '' 'New Translation Date'.
+        set_field_title 'BASE_DAT_OLD' '' '' 'Old Translation Date'.
+        set_field_title 'UPD_MSG' '' '' 'Status'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    IF lv_label_s IS NOT INITIAL OR
+       lv_label_m IS NOT INITIAL OR
+       lv_label_l IS NOT INITIAL.
+      co_col->set_short_text( lv_label_s ).
+      co_col->set_medium_text( lv_label_m ).
+      co_col->set_long_text( lv_label_l ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+CLASS lcl_salv_handler DEFINITION DEFERRED.
+CLASS lcl_salv_handler DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS : on_user_command FOR EVENT added_function OF cl_salv_events
+      IMPORTING e_salv_function.
+
+    CLASS-METHODS : handle_click FOR EVENT double_click OF cl_salv_events_table
+      IMPORTING row column.
+
+    CLASS-METHODS : added_function FOR EVENT added_function OF cl_salv_events_table
+      IMPORTING e_salv_function.
+ENDCLASS.
+CLASS lcl_salv_handler IMPLEMENTATION.
+  METHOD on_user_command.
+    PERFORM handle_user_command USING e_salv_function.
+  ENDMETHOD.                    "on_user_command
+
+  METHOD: handle_click .
+
+  ENDMETHOD.
+
+  METHOD added_function .
+
+  ENDMETHOD.
+ENDCLASS.
+*&---------------------------------------------------------------------*
+*&      Form  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM alv_display .
+
+  DATA: gr_events TYPE REF TO lcl_salv_handler.
+
+  DATA: lt_out       TYPE TABLE OF ty_vbrevk,
+        lo_exception TYPE REF TO cx_root.
+
+  lt_out = CORRESPONDING #( t_vbrevk ).
+
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = DATA(lo_alv)
+        CHANGING
+          t_table      = lt_out.
+    CATCH cx_salv_msg INTO lo_exception.
+      DATA(lv_msg) = lo_exception->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+
+*    Set all default ALV functions
+  lo_alv->get_functions( )->set_all( if_salv_c_bool_sap=>true ).
+
+*    Layout settings
+  lo_alv->get_layout( )->set_key( VALUE #( report = sy-repid ) ).
+  lo_alv->get_layout( )->set_save_restriction( if_salv_c_layout=>restrict_none ).
+  lo_alv->get_layout( )->set_default( if_salv_c_bool_sap=>true ).
+
+******* Aggregate Function Settings *******
+  DATA(lo_aggr) = lo_alv->get_aggregations( ).                      "Get Aggregate Functions"
+
+*    Display settings
+  lo_alv->get_display_settings( )->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  lo_alv->get_display_settings( )->set_list_header( sy-title ).
+  lo_alv->get_display_settings( )->set_list_header_size( cl_salv_display_settings=>c_header_size_medium ).
+
+*    Set Columns details
+  lo_alv->get_columns( )->set_optimize( if_salv_c_bool_sap=>true ).
+  lo_alv->get_columns( )->set_key_fixation( if_salv_c_bool_sap=>true ).
+
+  DATA(lt_columns) = lo_alv->get_columns( )->get( ).
+
+  CALL METHOD cl_rev=>alv_set_columns(
+    CHANGING
+      ct_cols = lt_columns
+      co_aggr = lo_aggr ).
+
+
+  IF rg_forw EQ 'X' AND table_refresh IS INITIAL .
+    lo_alv->set_screen_status( pfstatus = 'ALV_ACTION'
+                                  report = sy-repid
+                                  set_functions = lo_alv->c_functions_all ).
+
+    DATA: lr_events TYPE REF TO cl_salv_events_table.
+
+    lr_events = lo_alv->get_event( ).
+    CREATE OBJECT gr_events.
+    SET HANDLER gr_events->on_user_command FOR lr_events.
+
+  ENDIF.
+  CALL METHOD lo_alv->display( ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  handle_user_command
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM handle_user_command USING i_ucomm TYPE salv_de_function.
+
+  CASE i_ucomm.
+
+    WHEN '&EXEC'.
+      PERFORM change_execution.
+      PERFORM check_operation.
+
+      table_refresh = 'X'.
+      PERFORM alv_display.
+  ENDCASE.
+
+ENDFORM.                    " handle_user_command
+
+*&---------------------------------------------------------------------*
+*&      Form  DATA_SELCTION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM exec_foreground.
+  IF t_vbrevk IS NOT INITIAL.
+    DELETE ADJACENT DUPLICATES FROM t_vbrevk COMPARING ALL FIELDS.
+    PERFORM check_operation.
+    PERFORM alv_display.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHANGE_EXECUTION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM change_execution .
+  CALL FUNCTION 'POPUP_TO_CONFIRM'
+    EXPORTING
+      titlebar              = 'Confirmation'
+*     DIAGNOSE_OBJECT       = ' '
+      text_question         = 'Do you want to update the table now?'
+      text_button_1         = 'YES'
+*     ICON_BUTTON_1         = ' '
+      text_button_2         = 'No'
+*     ICON_BUTTON_2         = ' '
+      default_button        = '2'
+      display_cancel_button = 'X'
+*     USERDEFINED_F1_HELP   = ' '
+*     START_COLUMN          = 25
+*     START_ROW             = 6
+*     POPUP_TYPE            =
+*     IV_QUICKINFO_BUTTON_1 = ' '
+*     IV_QUICKINFO_BUTTON_2 = ' '
+    IMPORTING
+      answer                = lv_answer
+* TABLES
+*     PARAMETER             =
+    EXCEPTIONS
+      text_not_found        = 1
+      OTHERS                = 2.
+
+  IF sy-subrc EQ 0 AND lv_answer EQ 1.
+    PERFORM value_changes.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DATA_SELCTION_BACKGROUND
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM exec_background.
+  IF t_vbrevk IS NOT INITIAL.
+    PERFORM value_changes.
+    PERFORM check_operation.
+    PERFORM alv_display.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DATA_SELECTION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM data_selection .
+
+  SELECT vbeln, auart, vkorg, vtweg, spart
+    FROM vbak
+    INTO TABLE @DATA(t_vbak)
+    WHERE vbtyp = 'G'
+    AND waerk <> 'INR'
+  AND vkorg NOT IN ('2012','2016').
+
+  IF sy-subrc EQ 0.
+    DELETE t_vbak WHERE auart = 'ZIDM'
+              AND ( vkorg = '2011' OR vkorg = '5047' OR vkorg = '5051' )
+              AND vtweg = '13'
+              AND spart = '01'.
+
+    IF t_vbak IS NOT INITIAL.
+      SELECT vbeln, posnr, auart, waerk, base_dat
+        FROM vbrevk
+        INTO TABLE @DATA(lt_vbrevk)
+        FOR ALL ENTRIES IN @t_vbak WHERE vbeln = @t_vbak-vbeln
+                                     AND base_dat NE '00000000'.
+      IF sy-subrc NE 0.
+        MESSAGE 'There is not data to update.' TYPE 'I' DISPLAY LIKE 'E'.
+        EXIT.
+      ELSE.
+        LOOP AT lt_vbrevk ASSIGNING FIELD-SYMBOL(<fs_l_vbrevk>).
+          IF sy-subrc EQ 0.
+            gw_vbrevk-vbeln = <fs_l_vbrevk>-vbeln.
+            gw_vbrevk-posnr = <fs_l_vbrevk>-posnr.
+            gw_vbrevk-auart = <fs_l_vbrevk>-auart.
+            gw_vbrevk-waerk = <fs_l_vbrevk>-waerk.
+            gw_vbrevk-base_dat_old = <fs_l_vbrevk>-base_dat.
+            APPEND gw_vbrevk TO t_vbrevk.
+            CLEAR gw_vbrevk.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  VALUE_CHANGES
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM value_changes .
+  LOOP AT t_vbrevk ASSIGNING FIELD-SYMBOL(<fs_vbrevk>).
+    CALL FUNCTION 'ZUPDATE_BASE_DATE_VBREVK'
+      EXPORTING
+        i_fkdat = '00000000'
+        i_vbeln = <fs_vbrevk>-vbeln
+        i_posnr = <fs_vbrevk>-posnr.
+  ENDLOOP.
+
+  IF rg_forw EQ 'X'.
+    IF sy-subrc <> 0.
+      MESSAGE 'There seems to be some error in updating the tables.' TYPE 'I' DISPLAY LIKE 'E'.
+    ELSE.
+      MESSAGE 'Tables Updated Successfully!.' TYPE 'I' DISPLAY LIKE 'S'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_OPERATION
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM check_operation .
+  LOOP AT t_vbrevk ASSIGNING FIELD-SYMBOL(<fs_vbrevk>).
+    SELECT SINGLE base_dat INTO @DATA(base_dat) FROM vbrevk WHERE vbeln = @<fs_vbrevk>-vbeln
+                                                        AND posnr = @<fs_vbrevk>-posnr
+                                                        AND base_dat NE '00000000'.
+    <fs_vbrevk>-base_dat_new = base_dat.
+    IF base_dat IS NOT INITIAL.
+      <fs_vbrevk>-upd_msg = 'Not Updated'.
+    ELSE.
+      <fs_vbrevk>-upd_msg = 'Updated'.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  UPDATE_LOG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM update_log .
+  DATA gt_log TYPE STANDARD TABLE OF zvbrevk_upd_log.
+  DATA gw_log TYPE zvbrevk_upd_log.
+
+  IF t_vbrevk IS NOT INITIAL.
+    LOOP AT t_vbrevk ASSIGNING FIELD-SYMBOL(<fs_vbrevk>).
+      gw_log-vbeln = <fs_vbrevk>-vbeln.
+      gw_log-posnr = <fs_vbrevk>-posnr.
+      gw_log-auart = <fs_vbrevk>-auart.
+      gw_log-waerk = <fs_vbrevk>-waerk.
+      gw_log-base_dat_old  = <fs_vbrevk>-base_dat_old.
+      gw_log-updated       = sy-datum.
+      gw_log-update_time   = sy-uzeit.
+      gw_log-usnam         = sy-uname.
+      APPEND gw_log TO gt_log.
+      CLEAR: gw_log.
+    ENDLOOP.
+  ENDIF.
+
+  IF gt_log IS NOT INITIAL.
+    MODIFY zvbrevk_upd_log FROM TABLE gt_log.
+  ENDIF.
+
+ENDFORM.
