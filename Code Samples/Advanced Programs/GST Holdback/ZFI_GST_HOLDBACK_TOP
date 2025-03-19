@@ -1,0 +1,71 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_GST_HOLDBACK_TOP
+*&---------------------------------------------------------------------*
+
+TYPES: BEGIN OF ty_final,
+*************  BKPF
+         bukrs TYPE bkpf-bukrs,
+         belnr TYPE bkpf-belnr,
+         gjahr TYPE bkpf-gjahr,
+         blart TYPE bkpf-blart,
+         bldat TYPE bkpf-bldat,
+         budat TYPE bkpf-budat,
+         wwert TYPE bkpf-wwert,
+         monat TYPE bkpf-monat,
+         waers TYPE bkpf-waers,
+         xblnr TYPE bkpf-xblnr,
+         bktxt TYPE bkpf-bktxt,
+************** BSEG
+         lifnr TYPE bseg-lifnr,
+         sgtxt TYPE bkpf-bktxt,
+         zuonr TYPE bseg-zuonr,
+         bupla TYPE bseg-bupla,
+         secco TYPE bseg-secco,
+         prctr TYPE bseg-prctr,
+         zlsch TYPE bseg-zlsch,
+************** BSET
+         fwste TYPE bset-fwste,
+         rev   TYPE c,
+       END OF ty_final.
+
+TYPES: BEGIN OF ty_out,
+         bukrs TYPE bkpf-bukrs,
+         belnr TYPE bkpf-belnr,
+         gjahr TYPE bkpf-gjahr,
+         rev   TYPE c.
+         INCLUDE STRUCTURE bapiret2.
+       TYPES:  END OF ty_out.
+
+
+DATA: gt_final TYPE TABLE OF ty_final.
+
+DATA: gs_inv_head   TYPE bapiache09,
+      gt_inv_vend   TYPE STANDARD TABLE OF bapiacap09,
+      gt_inv_curr   TYPE STANDARD TABLE OF bapiaccr09,
+      gt_inv_rest   TYPE STANDARD TABLE OF bapiret2,
+      gt_rev_rest   TYPE STANDARD TABLE OF bapiret2,
+      gt_out_rest   TYPE STANDARD TABLE OF ty_out,
+      gt_inv_wt     TYPE STANDARD TABLE OF bapiacwt09,
+      gt_extension2	TYPE STANDARD TABLE OF bapiparex.
+
+DATA: gv_obj_type TYPE  bapiache09-obj_type,
+      gv_obj_key  TYPE  bapiache09-obj_key,
+      gv_obj_sys  TYPE  bapiache09-obj_sys.
+
+DATA: r_docty TYPE RANGE OF blart.
+DATA: lr_docty LIKE LINE OF r_docty.
+DATA: r_glcod TYPE RANGE OF hkont.
+DATA: lr_glcod LIKE LINE OF r_glcod.
+DATA: r_cocod TYPE RANGE OF bukrs.
+DATA: lr_cocod LIKE LINE OF r_cocod.
+
+
+DATA: gv_budat TYPE bkpf-budat.
+DATA: gv_cputm_frm TYPE bkpf-cputm.
+DATA: gv_cputm_to TYPE bkpf-cputm.
+DATA: gv_diff TYPE i.
+
+CONSTANTS: gc_sec TYPE i VALUE '1800'.
+CONSTANTS: gc_objtyp TYPE awtyp VALUE 'BKPFF'.
+CONSTANTS: gc_obj_sys TYPE awsys VALUE 'SEPCLNT100'.
+CONSTANTS: gc_bus_act TYPE glvor VALUE 'RFBU'.

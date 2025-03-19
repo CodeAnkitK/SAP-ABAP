@@ -1,0 +1,321 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_GST_HOLDBACK_FUNC
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  GET_POST_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_post_data .
+  TYPES: BEGIN OF ty_bset,
+           bukrs TYPE bset-bukrs,
+           belnr TYPE bset-belnr,
+           gjahr TYPE bset-gjahr,
+           fwste TYPE bset-fwste,
+         END OF ty_bset.
+
+  DATA: lt_bset_final TYPE TABLE OF ty_bset.
+  DATA: ls_bset_final TYPE ty_bset.
+
+  SELECT t1~bukrs,
+         t1~belnr,
+         t1~gjahr,
+         t1~blart,
+         t1~bldat,
+         t1~budat,
+         t1~wwert,
+         t1~monat,
+         t1~waers,
+         t1~xblnr,
+         t1~bktxt
+    FROM bkpf AS t1
+    LEFT OUTER JOIN zfi_gst_hold AS t2
+       ON t1~bukrs = t2~bukrs
+      AND t1~belnr = t2~belnr
+      AND t1~gjahr = t2~gjahr
+      AND t1~blart = t2~blart
+    INTO TABLE @DATA(lt_bkpf)
+    WHERE t1~bukrs IN @r_cocod
+*      AND t1~cputm BETWEEN @gv_cputm_frm AND @gv_cputm_to
+      AND t1~budat = '20250318' "@gv_budat
+      AND t1~blart IN @r_docty
+      AND t1~stblg EQ @space
+      AND t2~bukrs IS NULL
+      AND t2~belnr IS NULL
+      AND t2~gjahr IS NULL
+      AND t2~blart IS NULL.
+
+
+  IF sy-subrc <> 0.
+    PERFORM msg_display USING text-001 'I' 'W'.
+  ELSE.
+    SELECT bukrs,
+           belnr,
+           gjahr,
+           hkont,
+           fwste
+         FROM bset
+         INTO TABLE @DATA(lt_bset)
+         FOR ALL ENTRIES IN @lt_bkpf
+          WHERE bukrs = @lt_bkpf-bukrs
+            AND belnr = @lt_bkpf-belnr
+            AND gjahr = @lt_bkpf-gjahr
+            AND hkont IN @r_glcod.
+
+    IF sy-subrc <> 0.
+      PERFORM msg_display USING TEXT-002 'I' 'W'.
+    ELSE.
+      LOOP AT lt_bset ASSIGNING FIELD-SYMBOL(<fs_bset>).
+        ls_bset_final-bukrs = <fs_bset>-bukrs.
+        ls_bset_final-belnr = <fs_bset>-belnr.
+        ls_bset_final-gjahr = <fs_bset>-gjahr.
+        ls_bset_final-fwste = ls_bset_final-fwste + <fs_bset>-fwste.
+        AT END OF belnr.
+          APPEND ls_bset_final TO lt_bset_final.
+          FREE: ls_bset_final, <fs_bset>.
+        ENDAT.
+      ENDLOOP.
+    ENDIF.
+
+    IF sy-subrc EQ 0.
+      SELECT bukrs,
+          belnr,
+          gjahr,
+          lifnr,
+          sgtxt,
+          zuonr,
+          bupla,
+          secco,
+          prctr,
+          zlsch
+    FROM bseg
+    INTO TABLE @DATA(lt_bseg)
+    FOR ALL ENTRIES IN @lt_bkpf
+    WHERE bukrs = @lt_bkpf-bukrs
+      AND belnr = @lt_bkpf-belnr
+      AND gjahr = @lt_bkpf-gjahr
+      AND bschl = '31'.
+
+      IF sy-subrc <> 0.
+        PERFORM msg_display USING text-003 'I' 'W'.
+      ELSE.
+        LOOP AT lt_bkpf ASSIGNING FIELD-SYMBOL(<fs_bkpf>).
+          LOOP AT lt_bseg ASSIGNING FIELD-SYMBOL(<fs_bseg>)
+                                           WHERE bukrs = <fs_bkpf>-bukrs
+                                             AND belnr = <fs_bkpf>-belnr
+                                             AND gjahr = <fs_bkpf>-gjahr.
+
+            SELECT SINGLE prctr FROM bseg INTO <fs_bseg>-prctr  WHERE bukrs = <fs_bkpf>-bukrs
+                                                                  AND belnr = <fs_bkpf>-belnr
+                                                                  AND gjahr = <fs_bkpf>-gjahr
+                                                                  AND prctr NE space.
+
+            LOOP AT lt_bset_final ASSIGNING FIELD-SYMBOL(<fs_bset_final>)
+                                             WHERE bukrs = <fs_bkpf>-bukrs
+                                               AND belnr = <fs_bkpf>-belnr
+                                               AND gjahr = <fs_bkpf>-gjahr.
+
+
+              APPEND VALUE #(
+*************  BKPF
+                 bukrs = <fs_bkpf>-bukrs
+                 belnr = <fs_bkpf>-belnr
+                 gjahr = <fs_bkpf>-gjahr
+                 blart = <fs_bkpf>-blart
+                 bldat = <fs_bkpf>-bldat
+                 budat = <fs_bkpf>-budat
+                 wwert = <fs_bkpf>-wwert
+                 monat = <fs_bkpf>-monat
+                 waers = <fs_bkpf>-waers
+                 xblnr = <fs_bkpf>-xblnr
+                 bktxt = <fs_bkpf>-bktxt
+************** BSEG
+                 lifnr = <fs_bseg>-lifnr
+                 sgtxt = <fs_bseg>-sgtxt
+                 zuonr = <fs_bseg>-zuonr
+                 bupla = <fs_bseg>-bupla
+                 secco = <fs_bseg>-secco
+                 prctr = <fs_bseg>-prctr
+                 zlsch = <fs_bseg>-zlsch
+************** BSET
+                 fwste = <fs_bset_final>-fwste ) TO gt_final.
+            ENDLOOP.
+          ENDLOOP.
+        ENDLOOP.
+      ENDIF.
+
+
+    ENDIF.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_SET
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_set .
+
+  DATA lv_docty TYPE text100 VALUE 'ZGST_DOCTYP_GSTHOLD'.
+  DATA lv_gtcod TYPE text100 VALUE 'ZGST_GLS_HOLD'.
+  DATA lv_cocod TYPE text100 VALUE 'ZGSTHOLD_COCODE'.
+  DATA lv_setid_docty TYPE sethier-setid.
+  DATA lv_setid_glcode TYPE sethier-setid.
+  DATA lv_setid_cocod TYPE sethier-setid.
+  DATA lt_setv_docty TYPE TABLE OF rgsb4.
+  DATA lt_setv_glcod TYPE TABLE OF rgsb4.
+  DATA lt_setv_cocod TYPE TABLE OF rgsb4.
+
+***************Document Type set
+  CALL FUNCTION 'G_SET_GET_ID_FROM_NAME'
+    EXPORTING
+      shortname                = lv_docty
+    IMPORTING
+      new_setid                = lv_setid_docty
+    EXCEPTIONS
+      no_set_found             = 1
+      no_set_picked_from_popup = 2
+      wrong_class              = 3
+      wrong_subclass           = 4
+      table_field_not_found    = 5
+      fields_dont_match        = 6
+      set_is_empty             = 7
+      formula_in_set           = 8
+      set_is_dynamic           = 9
+      OTHERS                   = 10.
+
+  IF sy-subrc <> 0.
+    PERFORM msg_display USING text-004 'E' 'W'.
+  ELSE.
+    CALL FUNCTION 'G_SET_GET_ALL_VALUES'
+      EXPORTING
+        setnr         = lv_setid_docty
+      TABLES
+        set_values    = lt_setv_docty
+      EXCEPTIONS
+        set_not_found = 1
+        OTHERS        = 2.
+    IF sy-subrc <> 0.
+      PERFORM msg_display USING text-005 'E' 'W'.
+    ELSE.
+      LOOP AT lt_setv_docty ASSIGNING FIELD-SYMBOL(<ls_setv_docty>).
+        CLEAR lr_docty.
+        lr_docty-sign   = 'I'.
+
+        IF <ls_setv_docty>-from = <ls_setv_docty>-to.
+          lr_docty-option = 'EQ'.
+          lr_docty-low    = <ls_setv_docty>-from.
+        ELSE.
+          lr_docty-option = 'BT'.
+          lr_docty-low    = <ls_setv_docty>-from.
+          lr_docty-high   = <ls_setv_docty>-to.
+        ENDIF.
+        APPEND lr_docty TO r_docty.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+
+
+************ G/L code Set
+  CALL FUNCTION 'G_SET_GET_ID_FROM_NAME'
+    EXPORTING
+      shortname                = lv_gtcod
+    IMPORTING
+      new_setid                = lv_setid_glcode
+    EXCEPTIONS
+      no_set_found             = 1
+      no_set_picked_from_popup = 2
+      wrong_class              = 3
+      wrong_subclass           = 4
+      table_field_not_found    = 5
+      fields_dont_match        = 6
+      set_is_empty             = 7
+      formula_in_set           = 8
+      set_is_dynamic           = 9
+      OTHERS                   = 10.
+
+  IF sy-subrc <> 0.
+    PERFORM msg_display USING text-004 'E' 'W'.
+  ELSE.
+    CALL FUNCTION 'G_SET_GET_ALL_VALUES'
+      EXPORTING
+        setnr         = lv_setid_glcode
+      TABLES
+        set_values    = lt_setv_glcod
+      EXCEPTIONS
+        set_not_found = 1
+        OTHERS        = 2.
+    IF sy-subrc <> 0.
+      PERFORM msg_display USING text-005 'E' 'W'.
+    ELSE.
+      LOOP AT lt_setv_glcod ASSIGNING FIELD-SYMBOL(<ls_setv_glcod>).
+        CLEAR lr_glcod.
+        lr_glcod-sign   = 'I'.
+
+        IF <ls_setv_glcod>-from = <ls_setv_glcod>-to.
+          lr_glcod-option = 'EQ'.
+          lr_glcod-low    = <ls_setv_glcod>-from.
+        ELSE.
+          lr_glcod-option = 'BT'.
+          lr_glcod-low    = <ls_setv_glcod>-from.
+          lr_glcod-high   = <ls_setv_glcod>-to.
+        ENDIF.
+        APPEND lr_glcod TO r_glcod.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+
+************  company code.
+  CALL FUNCTION 'G_SET_GET_ID_FROM_NAME'
+    EXPORTING
+      shortname                = lv_cocod
+    IMPORTING
+      new_setid                = lv_setid_cocod
+    EXCEPTIONS
+      no_set_found             = 1
+      no_set_picked_from_popup = 2
+      wrong_class              = 3
+      wrong_subclass           = 4
+      table_field_not_found    = 5
+      fields_dont_match        = 6
+      set_is_empty             = 7
+      formula_in_set           = 8
+      set_is_dynamic           = 9
+      OTHERS                   = 10.
+
+  IF sy-subrc <> 0.
+    PERFORM msg_display USING text-004 'E' 'W'.
+  ELSE.
+    CALL FUNCTION 'G_SET_GET_ALL_VALUES'
+      EXPORTING
+        setnr         = lv_setid_cocod
+      TABLES
+        set_values    = lt_setv_cocod
+      EXCEPTIONS
+        set_not_found = 1
+        OTHERS        = 2.
+    IF sy-subrc <> 0.
+      PERFORM msg_display USING text-005 'E' 'W'.
+    ELSE.
+      LOOP AT lt_setv_cocod ASSIGNING FIELD-SYMBOL(<ls_setv_cocod>).
+        CLEAR lr_cocod.
+        lr_cocod-sign   = 'I'.
+
+        IF <ls_setv_cocod>-from = <ls_setv_cocod>-to.
+          lr_cocod-option = 'EQ'.
+          lr_cocod-low    = <ls_setv_cocod>-from.
+        ELSE.
+          lr_cocod-option = 'BT'.
+          lr_cocod-low    = <ls_setv_cocod>-from.
+          lr_cocod-high   = <ls_setv_cocod>-to.
+        ENDIF.
+        APPEND lr_cocod TO r_cocod.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+ENDFORM.

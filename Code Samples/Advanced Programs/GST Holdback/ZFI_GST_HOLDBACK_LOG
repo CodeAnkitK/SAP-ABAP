@@ -1,0 +1,249 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFI_GST_HOLDBACK_LOG
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zfi_gst_holdback_log.
+
+TABLES: zfi_gst_hold.
+
+DATA: gt_log TYPE STANDARD TABLE OF zfi_gst_hold.
+DATA: gv_budat TYPE zfi_gst_hold-created.
+DATA: gv_cputm_frm TYPE zfi_gst_hold-time.
+DATA: gv_cputm_to TYPE zfi_gst_hold-time.
+DATA: gv_diff TYPE i.
+
+CONSTANTS: gc_sec TYPE i VALUE '1800'.
+
+INITIALIZATION.
+  PERFORM get_timegap.
+
+  SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-000.
+  SELECT-OPTIONS: so_bukrs FOR zfi_gst_hold-bukrs.
+  SELECT-OPTIONS: so_belnr FOR zfi_gst_hold-belnr.
+  SELECT-OPTIONS: so_gjahr FOR zfi_gst_hold-gjahr.
+  SELECTION-SCREEN: END OF BLOCK b1.
+
+  SELECTION-SCREEN: BEGIN OF BLOCK b2 WITH FRAME TITLE text-001.
+  SELECT-OPTIONS: so_time FOR zfi_gst_hold-time.
+  PARAMETERS: p_crtd TYPE zfi_gst_hold-created.
+  SELECT-OPTIONS : so_cdby FOR zfi_gst_hold-created_by NO-EXTENSION NO INTERVALS .
+  SELECTION-SCREEN: END OF BLOCK b2.
+
+  SELECTION-SCREEN: BEGIN OF BLOCK b3 WITH FRAME TITLE text-003.
+  SELECT-OPTIONS : so_msg FOR zfi_gst_hold-type NO-EXTENSION NO INTERVALS .
+  SELECTION-SCREEN: END OF BLOCK b3.
+
+START-OF-SELECTION.
+  PERFORM get_log.
+
+END-OF-SELECTION.
+  IF gt_log IS NOT INITIAL.
+    PERFORM display_alv.
+  ENDIF.
+*&---------------------------------------------------------------------*
+*&      Form  GET_TIMEGAP
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_timegap .
+  gv_cputm_frm = sy-uzeit - gc_sec.
+  gv_cputm_to = sy-uzeit.
+
+  so_time-sign = 'I'.
+  so_time-option = 'BT'.
+  so_time-low = gv_cputm_frm.
+  so_time-high = gv_cputm_to.
+  APPEND so_time.
+
+  gv_diff = gv_cputm_to - gv_cputm_frm.
+
+  IF gv_diff < 0.
+    gv_budat = sy-datum - 1.
+  ELSE.
+    gv_budat = sy-datum.
+  ENDIF.
+
+  p_crtd = gv_budat.
+
+  so_cdby-sign = 'I'.
+  so_cdby-option = 'EQ'.
+  so_cdby-low = sy-uname.
+  APPEND so_cdby.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_LOG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_log .
+
+  DATA lv_check TYPE c.
+
+  SELECT
+    bukrs,
+    belnr,
+    gjahr,
+    blart,
+    bldat,
+    xblnr,
+    monat,
+    type,
+    obj_key,
+    created,
+    time,
+    reversal,
+    created_by
+   FROM zfi_gst_hold
+    INTO TABLE @DATA(lt_log)
+    WHERE belnr IN @so_belnr
+      AND bukrs IN @so_bukrs
+      AND gjahr IN @so_gjahr
+      AND created = @p_crtd
+      AND time IN @so_time
+      AND type IN @so_msg
+      AND created_by IN @so_cdby.
+
+  IF sy-subrc <> 0.
+    MESSAGE text-002 TYPE 'I' DISPLAY LIKE 'W'.
+  ELSE.
+    LOOP AT lt_log ASSIGNING FIELD-SYMBOL(<fs_log>).
+      APPEND VALUE #( bukrs = <fs_log>-bukrs
+                      belnr = <fs_log>-belnr
+                      gjahr = <fs_log>-gjahr
+                      blart = <fs_log>-blart
+                      bldat = <fs_log>-bldat
+                      xblnr = <fs_log>-xblnr
+                      monat = <fs_log>-monat
+                      type  = <fs_log>-type
+                      obj_key = <fs_log>-obj_key
+                      created = <fs_log>-created
+                      time    = <fs_log>-time
+                      reversal = <fs_log>-reversal
+                      created_by = <fs_log>-created_by ) TO gt_log.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+DEFINE set_field_title.
+  WHEN &1.
+    lv_label_s = &2.
+    lv_label_m = &3.
+    lv_label_l = &4.
+END-OF-DEFINITION.
+
+*&---------------------------------------------------------------------*
+*&      CLASS  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+CLASS cl_rev DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      alv_set_columns CHANGING ct_cols TYPE salv_t_column_ref
+                               co_aggr TYPE REF TO cl_salv_aggregations.
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      alv_set_label CHANGING co_col TYPE REF TO cl_salv_column_table.
+ENDCLASS.
+
+CLASS cl_rev IMPLEMENTATION.
+  METHOD alv_set_columns.
+    DATA: lo_col       TYPE REF TO cl_salv_column_table,
+          lo_exception TYPE REF TO cx_root.
+
+    LOOP AT ct_cols ASSIGNING FIELD-SYMBOL(<fs_cols>).
+      lo_col ?= <fs_cols>-r_column.
+      CHECK lo_col IS NOT INITIAL.
+*     add appropriate lables
+      IF lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+        cl_rev=>alv_set_label( CHANGING co_col = lo_col ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD alv_set_label.
+    CHECK co_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+    DATA: lv_label_s TYPE scrtext_s,
+          lv_label_m TYPE scrtext_m,
+          lv_label_l TYPE scrtext_l.
+
+    DATA(lv_colname) = co_col->get_columnname( ).
+    CASE lv_colname.
+        set_field_title 'BUKRS' '' '' 'Company Code'.
+        set_field_title 'BELNR' '' '' 'Document No.'.
+        set_field_title 'GJAHR' '' '' 'Fiscal Year'.
+        set_field_title 'REVERSAL'   '' '' 'Reversed'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    IF lv_label_s IS NOT INITIAL OR
+       lv_label_m IS NOT INITIAL OR
+       lv_label_l IS NOT INITIAL.
+      co_col->set_short_text( lv_label_s ).
+      co_col->set_medium_text( lv_label_m ).
+      co_col->set_long_text( lv_label_l ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+FORM display_alv .
+  DATA: lt_out       TYPE TABLE OF zfi_gst_hold,
+        lo_exception TYPE REF TO cx_root.
+
+  lt_out = CORRESPONDING #( gt_log ).
+
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = DATA(lo_alv)
+        CHANGING
+          t_table      = lt_out.
+    CATCH cx_salv_msg INTO lo_exception.
+      DATA(lv_msg) = lo_exception->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+
+*    Set all default ALV functions
+  lo_alv->get_functions( )->set_all( if_salv_c_bool_sap=>true ).
+
+*    Layout settings
+  lo_alv->get_layout( )->set_key( VALUE #( report = sy-repid ) ).
+  lo_alv->get_layout( )->set_save_restriction( if_salv_c_layout=>restrict_none ).
+  lo_alv->get_layout( )->set_default( if_salv_c_bool_sap=>true ).
+
+******* Aggregate Function Settings *******
+  DATA(lo_aggr) = lo_alv->get_aggregations( ).                      "Get Aggregate Functions"
+
+*    Display settings
+  lo_alv->get_display_settings( )->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  lo_alv->get_display_settings( )->set_list_header( sy-title ).
+  lo_alv->get_display_settings( )->set_list_header_size( cl_salv_display_settings=>c_header_size_medium ).
+
+*    Set Columns details
+  lo_alv->get_columns( )->set_optimize( if_salv_c_bool_sap=>true ).
+  lo_alv->get_columns( )->set_key_fixation( if_salv_c_bool_sap=>true ).
+
+  DATA(lt_columns) = lo_alv->get_columns( )->get( ).
+
+  CALL METHOD cl_rev=>alv_set_columns(
+    CHANGING
+      ct_cols = lt_columns
+      co_aggr = lo_aggr ).
+
+  CALL METHOD lo_alv->display( ).
+ENDFORM.

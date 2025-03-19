@@ -1,0 +1,194 @@
+*----------------------------------------------------------------------*
+***INCLUDE ZFI_GST_HOLDBACK_BDC.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM process_data .
+  LOOP AT gt_final ASSIGNING FIELD-SYMBOL(<fs_final>).
+
+    FREE: gs_inv_head.
+    REFRESH: gt_inv_vend, gt_inv_curr, gt_inv_wt, gt_inv_rest.
+
+    DATA: lv_itemno TYPE posnr_acc.
+    DATA: lv_sp_ind TYPE acpi_umskz.
+    DATA: lv_block TYPE acpi_zlspr.
+    DATA: lv_type TYPE bapi_mtype.
+    DATA: count TYPE i VALUE 2.
+    DATA: index TYPE i VALUE 0.
+
+
+    CONSTANTS: lc_blart TYPE blart VALUE 'GS'.
+    CONSTANTS: lc_sp_ind TYPE acpi_umskz VALUE 'D'.
+    CONSTANTS: lc_block TYPE acpi_zlspr VALUE 'G'.
+    CONSTANTS: lc_ni TYPE witht VALUE 'NI'.
+    CONSTANTS: lc_10 TYPE wt_withcd VALUE '10'.
+
+    IF <fs_final>-rev NE abap_true.
+******************************************************************
+**  START OF INVOICE POSTING
+*******************************************************************
+      gs_inv_head-obj_type = gc_objtyp.
+      gs_inv_head-obj_sys  = gc_obj_sys.
+      gs_inv_head-bus_act  = gc_bus_act.
+      gs_inv_head-username = sy-uname.
+      gs_inv_head-header_txt = <fs_final>-bktxt.
+      gs_inv_head-comp_code  = <fs_final>-bukrs.
+      gs_inv_head-doc_date   = <fs_final>-bldat.
+      gs_inv_head-pstng_date = <fs_final>-budat.
+      gs_inv_head-trans_date = <fs_final>-wwert.
+      gs_inv_head-fisc_year  = <fs_final>-gjahr.
+      gs_inv_head-fis_period = <fs_final>-monat.
+      gs_inv_head-doc_type   = lc_blart.
+      gs_inv_head-ref_doc_no = <fs_final>-xblnr.
+
+      DO count TIMES.
+        lv_itemno = lv_itemno + 1.
+        index = index + 1.
+        DATA(lv_vendor) = |{ <fs_final>-lifnr ALPHA = IN }|.
+        DATA(lv_prctr) = |{ <fs_final>-prctr ALPHA = IN }|.
+        DATA(lv_zuonr) = |{ <fs_final>-prctr ALPHA = IN }|.
+
+        IF index EQ 1.
+          lv_sp_ind = lc_sp_ind.
+        ELSE.
+          FREE lv_sp_ind.
+        ENDIF.
+
+        IF index EQ 2.
+          lv_block = lc_block.
+        ELSE.
+          FREE lv_block.
+        ENDIF.
+
+        APPEND VALUE #(
+          itemno_acc = lv_itemno
+          vendor_no  = lv_vendor
+          comp_code  = <fs_final>-bukrs
+          item_text  = <fs_final>-sgtxt
+          bline_date = sy-datum
+          alloc_nmbr = lv_zuonr
+          sp_gl_ind  = lv_sp_ind
+          profit_ctr = lv_prctr
+          pmnt_block = lv_block
+          pymt_meth  = <fs_final>-zlsch
+          businessplace = <fs_final>-bupla
+          sectioncode   = <fs_final>-secco ) TO gt_inv_vend.
+
+        IF <fs_final>-rev EQ abap_true.
+          <fs_final>-fwste =  <fs_final>-fwste * -1.
+        ELSE.
+          IF index EQ 2.
+            <fs_final>-fwste =  <fs_final>-fwste * -1.
+          ENDIF.
+        ENDIF.
+
+        APPEND VALUE #(
+          itemno_acc = lv_itemno
+          currency = <fs_final>-waers
+          amt_doccur = <fs_final>-fwste ) TO gt_inv_curr.
+
+        APPEND VALUE #(
+          itemno_acc = lv_itemno
+          wt_type = lc_ni
+          wt_code = lc_10 ) TO gt_inv_wt.
+
+      ENDDO.
+
+      IF p_test EQ 'X'.
+        CALL FUNCTION 'BAPI_ACC_DOCUMENT_CHECK'
+          EXPORTING
+            documentheader = gs_inv_head
+          TABLES
+            accountpayable = gt_inv_vend
+            currencyamount = gt_inv_curr
+            return         = gt_inv_rest
+            accountwt      = gt_inv_wt.
+
+      ELSE.
+        CALL FUNCTION 'BAPI_ACC_DOCUMENT_POST'
+          EXPORTING
+            documentheader = gs_inv_head
+          IMPORTING
+            obj_type       = gv_obj_type
+            obj_key        = gv_obj_key
+            obj_sys        = gv_obj_sys
+          TABLES
+            accountpayable = gt_inv_vend
+            currencyamount = gt_inv_curr
+            return         = gt_inv_rest
+            accountwt      = gt_inv_wt.
+
+
+        READ TABLE gt_inv_rest ASSIGNING FIELD-SYMBOL(<fs_return>) WITH KEY type = 'E'.
+        IF sy-subrc <> 0.
+          CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'.
+          lv_type = 'S'.
+        ELSE.
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+          lv_type = 'E'.
+        ENDIF.
+        PERFORM create_log USING <fs_final> gv_obj_key lv_type.
+      ENDIF.
+
+******************************************************************
+**  END OF INVOICE POSTING
+*******************************************************************
+    ELSE.
+******************************************************************
+**  START OF INVOICE REVERSAL
+*******************************************************************
+      DATA: ls_reversal	 TYPE  bapiacrev.
+      DATA: lv_bus_act   TYPE  bapiache09-bus_act.
+      DATA: lv_obj_type  TYPE  bapiacrev-obj_type.
+      DATA: lv_obj_key   TYPE  bapiacrev-obj_key.
+      DATA: lv_obj_sys   TYPE  bapiacrev-obj_sys.
+
+      CONSTANTS: lc_01 TYPE stgrd VALUE '01'.
+
+      ls_reversal-obj_type   = gc_objtyp.
+      ls_reversal-obj_key    = <fs_final>-belnr && <fs_final>-bukrs && <fs_final>-gjahr.
+      ls_reversal-obj_sys    = gc_obj_sys.
+      ls_reversal-obj_key_r  = <fs_final>-belnr && <fs_final>-bukrs && <fs_final>-gjahr.
+      ls_reversal-pstng_date = <fs_final>-budat.
+      ls_reversal-fis_period = <fs_final>-monat.
+      ls_reversal-comp_code  = <fs_final>-bukrs.
+      ls_reversal-reason_rev = lc_01.
+      ls_reversal-ac_doc_no  = <fs_final>-belnr.
+
+      lv_bus_act = gc_bus_act.
+
+      IF p_test NE 'X'.
+        CALL FUNCTION 'BAPI_ACC_DOCUMENT_REV_POST'
+          EXPORTING
+            reversal = ls_reversal
+            bus_act  = lv_bus_act
+          IMPORTING
+            obj_type = lv_obj_type
+            obj_key  = lv_obj_key
+            obj_sys  = lv_obj_sys
+          TABLES
+            return   = gt_rev_rest.
+
+        READ TABLE gt_rev_rest ASSIGNING FIELD-SYMBOL(<fs_return_r>) WITH KEY type = 'E'.
+        IF sy-subrc <> 0.
+          CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'.
+          lv_type = 'S'.
+        ELSE.
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+          lv_type = 'E'.
+        ENDIF.
+        PERFORM create_log USING <fs_final> gv_obj_key lv_type.
+      ENDIF.
+******************************************************************
+**  END OF INVOICE REVERSAL
+*******************************************************************
+    ENDIF.
+
+  ENDLOOP.
+ENDFORM.

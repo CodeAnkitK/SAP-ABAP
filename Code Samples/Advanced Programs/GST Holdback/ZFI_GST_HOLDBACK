@@ -1,0 +1,67 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFI_GST_HOLDBACK
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT zfi_gst_holdback.
+
+INCLUDE zfi_gst_holdback_top.
+INCLUDE zfi_gst_holdback_func.
+INCLUDE zfi_gst_holdback_fun2.
+INCLUDE zfi_gst_holdback_alv.
+
+SELECTION-SCREEN: BEGIN OF BLOCK b1 WITH FRAME TITLE text-000.
+PARAMETERS: p_test AS CHECKBOX.
+SELECTION-SCREEN: END OF BLOCK b1.
+
+INCLUDE zfi_gst_holdback_upd.
+
+START-OF-SELECTION.
+  PERFORM get_set.
+  PERFORM get_time_range.
+  PERFORM get_post_data.
+  PERFORM get_rev_data.
+  PERFORM process_data.
+END-OF-SELECTION.
+
+  IF gt_inv_rest IS NOT INITIAL.
+    PERFORM display_alv.
+  ENDIF.
+*&---------------------------------------------------------------------*
+*&      Form  GET_TIME_RANGE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM get_time_range .
+  IF r_glcod IS NOT INITIAL
+    AND r_docty IS NOT INITIAL.
+
+    gv_cputm_frm = sy-uzeit - gc_sec.
+    gv_cputm_to = sy-uzeit.
+
+    gv_diff = gv_cputm_to - gv_cputm_frm.
+
+    IF gv_diff < 0.
+      gv_budat = sy-datum - 1.
+    ELSE.
+      gv_budat = sy-datum.
+    ENDIF.
+  ELSE.
+    PERFORM msg_display USING text-006 'I' 'W'.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  MSG_DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_TEXT_003  text
+*----------------------------------------------------------------------*
+FORM msg_display  USING  p_text p_type p_like.
+   MESSAGE p_text TYPE p_type DISPLAY LIKE p_like.
+ENDFORM.

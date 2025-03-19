@@ -1,0 +1,119 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_GST_HOLDBACK_ALV
+*&---------------------------------------------------------------------*
+DEFINE set_field_title.
+  WHEN &1.
+    lv_label_s = &2.
+    lv_label_m = &3.
+    lv_label_l = &4.
+END-OF-DEFINITION.
+
+*&---------------------------------------------------------------------*
+*&      CLASS  ALV_DISPLAY
+*&---------------------------------------------------------------------*
+CLASS cl_rev DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      alv_set_columns CHANGING ct_cols TYPE salv_t_column_ref
+                               co_aggr TYPE REF TO cl_salv_aggregations.
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      alv_set_label CHANGING co_col TYPE REF TO cl_salv_column_table.
+ENDCLASS.
+
+CLASS cl_rev IMPLEMENTATION.
+  METHOD alv_set_columns.
+    DATA: lo_col       TYPE REF TO cl_salv_column_table,
+          lo_exception TYPE REF TO cx_root.
+
+    LOOP AT ct_cols ASSIGNING FIELD-SYMBOL(<fs_cols>).
+      lo_col ?= <fs_cols>-r_column.
+      CHECK lo_col IS NOT INITIAL.
+*     add appropriate lables
+      IF lo_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+        cl_rev=>alv_set_label( CHANGING co_col = lo_col ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD alv_set_label.
+
+    CHECK co_col->is_technical( ) EQ if_salv_c_bool_sap=>false.
+    DATA: lv_label_s TYPE scrtext_s,
+          lv_label_m TYPE scrtext_m,
+          lv_label_l TYPE scrtext_l.
+
+    DATA(lv_colname) = co_col->get_columnname( ).
+    CASE lv_colname.
+        set_field_title 'BUKRS' '' '' 'Company Code'.
+        set_field_title 'BELNR' '' '' 'Document No.'.
+        set_field_title 'GJAHR' '' '' 'Fiscal Year'.
+        set_field_title 'REV'   '' '' 'Reversed'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    IF lv_label_s IS NOT INITIAL OR
+       lv_label_m IS NOT INITIAL OR
+       lv_label_l IS NOT INITIAL.
+      co_col->set_short_text( lv_label_s ).
+      co_col->set_medium_text( lv_label_m ).
+      co_col->set_long_text( lv_label_l ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM display_alv .
+
+  DATA: lt_out       TYPE TABLE OF ty_out,
+        lo_exception TYPE REF TO cx_root.
+
+  lt_out = CORRESPONDING #( gt_out_rest ).
+
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = DATA(lo_alv)
+        CHANGING
+          t_table      = lt_out.
+    CATCH cx_salv_msg INTO lo_exception.
+      DATA(lv_msg) = lo_exception->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+
+*    Set all default ALV functions
+  lo_alv->get_functions( )->set_all( if_salv_c_bool_sap=>true ).
+
+*    Layout settings
+  lo_alv->get_layout( )->set_key( VALUE #( report = sy-repid ) ).
+  lo_alv->get_layout( )->set_save_restriction( if_salv_c_layout=>restrict_none ).
+  lo_alv->get_layout( )->set_default( if_salv_c_bool_sap=>true ).
+
+******* Aggregate Function Settings *******
+  DATA(lo_aggr) = lo_alv->get_aggregations( ).                      "Get Aggregate Functions"
+
+*    Display settings
+  lo_alv->get_display_settings( )->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  lo_alv->get_display_settings( )->set_list_header( sy-title ).
+  lo_alv->get_display_settings( )->set_list_header_size( cl_salv_display_settings=>c_header_size_medium ).
+
+*    Set Columns details
+  lo_alv->get_columns( )->set_optimize( if_salv_c_bool_sap=>true ).
+  lo_alv->get_columns( )->set_key_fixation( if_salv_c_bool_sap=>true ).
+
+  DATA(lt_columns) = lo_alv->get_columns( )->get( ).
+
+  CALL METHOD cl_rev=>alv_set_columns(
+    CHANGING
+      ct_cols = lt_columns
+      co_aggr = lo_aggr ).
+
+  CALL METHOD lo_alv->display( ).
+ENDFORM.
