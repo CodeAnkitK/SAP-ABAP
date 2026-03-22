@@ -159,7 +159,7 @@ SAP follows a modular architecture where each module represents a specific busin
 
 ## Key SAP Modules
 
-![SAP Modules](src/SAP-Modules.png)
+![SAP Modules](src/SAP-Modules.jpg)
 
 - **FI (Financial Accounting)**  
   Manages financial transactions, ledgers, and reporting
