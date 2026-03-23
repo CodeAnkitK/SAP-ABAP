@@ -1,0 +1,99 @@
+# SAP Conceptual Questions – Foundations & Architecture
+
+## 1. Manual Processes vs ERP
+
+**Question:**  
+Why do manual business processes fail as organizations scale, and how does an ERP system fundamentally change this limitation?
+
+**Focus Area:**  
+Inefficiency → Integration → Real-time data
+
+---
+
+## 2. Centralized vs Decentralized Data
+
+**Question:**  
+Explain how centralized data in ERP improves decision-making compared to decentralized systems. What risks still remain?
+
+**Focus Area:**  
+Data consistency, visibility, residual risks
+
+---
+
+## 3. SAP Modular Architecture & Integration
+
+**Question:**  
+SAP is modular, but still tightly integrated. How does this architecture impact cross-functional business processes like Order-to-Cash?
+
+**Focus Area:**  
+End-to-end process integration
+
+---
+
+## 4. Need for Multiple Modules
+
+**Question:**  
+If SAP modules share the same database, why do we still need different modules like FI, MM, and SD?
+
+**Focus Area:**  
+Separation of concerns vs unified data model
+
+---
+
+## 5. Role of ABAP Consultant
+
+**Question:**  
+What is the role of an ABAP consultant in bridging business requirements and technical implementation, and why can’t functional consultants do this alone?
+
+**Focus Area:**  
+Technical vs functional boundaries
+
+---
+
+## 6. Importance of Application Server
+
+**Question:**  
+In SAP R/3 architecture, why is the Application Server critical instead of directly connecting users to the database?
+
+**Focus Area:**  
+System architecture and processing layer
+
+---
+
+## 7. Work Processes – Business Impact
+
+**Question:**  
+Differentiate between Dialog, Update, Background, and Spool work processes—not by definition, but by real business impact.
+
+**Focus Area:**  
+Practical system behavior
+
+---
+
+## 8. Multi-System Landscape
+
+**Question:**  
+Why is a multi-system landscape (DEV → QA → PRD) essential in SAP projects? What could go wrong if it didn’t exist?
+
+**Focus Area:**  
+Project governance and risk control
+
+---
+
+## 9. Client Concept vs System Landscape
+
+**Question:**  
+Explain the client concept in SAP. How does it differ from having separate systems for development, testing, and production?
+
+**Focus Area:**  
+Logical vs physical separation
+
+---
+
+## 10. Client-Dependent vs Independent Data
+
+**Question:**  
+What is the difference between client-dependent and client-independent data, and why is this distinction critical for SAP system design and transport management?
+
+**Focus Area:**  
+System design and data control
