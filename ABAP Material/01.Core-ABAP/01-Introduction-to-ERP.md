@@ -1,4 +1,4 @@
-# Introduction to ERP
+# 01. Introduction to ERP
 
 ## From Manual Processes to ERP – Why Businesses Needed SAP
 
