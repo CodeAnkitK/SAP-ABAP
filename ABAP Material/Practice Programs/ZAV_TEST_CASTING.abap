@@ -49,10 +49,14 @@ START-OF-SELECTION.
 
 BREAK-POINT.
 
-  " Upcasting
+  " Upcasting = generalize. 
+  " Upcast for generic processing, polymorphism, and cleaner code.
+  " Upcasting: use a superclass reference to handle any subclass object when you only need common behavior.
   lo_vehicle = lo_car.
   lo_vehicle->move( ).
 
-  " Downcasting
+  " Downcasting = specialize.
+  " Downcast only when you really need child-specific functionality.
+  " Downcasting: use it when you have a superclass reference but need subclass-specific methods.
   lo_car ?= lo_vehicle.
   lo_car->drive( ).
